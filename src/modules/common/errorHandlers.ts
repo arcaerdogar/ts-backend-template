@@ -1,9 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
-import { HttpError, ERRORS } from "./errors.js";
+import { HttpError } from "./errors.js";
 
 export function notFoundHandler(_req: Request, res: Response) {
-  res.status(404).json({ error: ERRORS.NOT_FOUND });
+  res.status(404).json({ error: "NOT_FOUND" });
 }
 
 export function globalErrorHandler(
@@ -15,7 +15,7 @@ export function globalErrorHandler(
   console.log(err);
   if (err instanceof ZodError) {
     return res.status(400).json({
-      error: ERRORS.VALIDATION_ERROR,
+      error: "VALIDATION_ERROR",
       details: (err as ZodError).issues,
     });
   }
@@ -24,7 +24,5 @@ export function globalErrorHandler(
       .status(err.statusCode)
       .json({ Error: err.code, message: err.message });
   }
-  return res
-    .status(500)
-    .json({ error: ERRORS.INTERNAL_ERROR, message: err.message });
+  return res.status(500).json({ error: "INTERNAL_SERVER_ERROR" });
 }

@@ -9,7 +9,7 @@ import {
   revokeAll,
 } from "./refresh.js";
 import { HttpError } from "../common/errors.js";
-import MailSender from "../../services/mail-service/mailService.js";
+import { MailSender } from "../../services/mail-service/mailSender.js";
 
 // deviceId ve refreshToken'ı direkt response body'sinde göndererek çözeceğiz. Mobilde cookie yok.
 
@@ -84,8 +84,4 @@ export const logoutAll = async (req: Request, res: Response) => {
   res.status(200).json({ msg: "Logged out from all devices." });
 };
 
-export const twofa = async (req: Request, res: Response) => {
-  const to = "erdogar23@itu.edu.tr";
-  await MailSender.sendMail({ to, text: "deneme", subject: "deneme" });
-  res.status(200).json({ msg: "Mail sent." });
-};
+export const twofa = async (req: Request, res: Response) => {};
