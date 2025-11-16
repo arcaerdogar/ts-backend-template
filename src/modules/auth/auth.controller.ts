@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import { createUser, verifyUser } from "./users.service.js";
-import { signAccessToken } from "./jwt.js";
+import { createUser, getUserInfo, verifyUser } from "./users.service.js";
+import { sign2faToken, signAccessToken } from "./jwt.js";
 import {
   issueRefreshToken,
   verifyAndRotate,
@@ -84,4 +84,18 @@ export const logoutAll = async (req: Request, res: Response) => {
   res.status(200).json({ msg: "Logged out from all devices." });
 };
 
-export const twofa = async (req: Request, res: Response) => {};
+export const twofa = async (req: Request, res: Response) => {
+  const userId = (req as any).user.id;
+  const user = await getUserInfo(userId);
+  const { scope } = req.body;
+  const twofaToken = sign2faToken(userId, scope);
+  const mailer = new MailSender();
+  if (scope == "email-change")
+    await mailer.sendEmailChangeEmail(user.email, twofaToken, "Kullanıcı");
+  else if (scope == "password-change")
+    await mailer.sendPasswordResetEmail(user.email, twofaToken, "Kullanıcı");
+  else if (scope == "verify-email")
+    await mailer.sendVerificationEmail(user.email, twofaToken, "Kullanıcı");
+  else throw HttpError.internal();
+  res.status(200).json({ msg: `Verification email sent to ${user.email}` });
+};

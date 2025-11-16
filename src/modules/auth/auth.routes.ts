@@ -16,7 +16,7 @@ import {
   register,
   twofa,
 } from "./auth.controller.js";
-import { authGuard } from "../common/authGuard.js";
+import { authGuard, twoFactorAuthGuard } from "../common/authGuard.js";
 
 const router = Router();
 
@@ -32,8 +32,8 @@ router.post("/refresh", validateBody(refreshSchema), asyncHandler(refresh));
 
 router.post("/2fa", authGuard, validateBody(twofaSchema), asyncHandler(twofa));
 
-// router.post("/verify-email");
+// router.post("/verify-email", authGuard, twoFactorAuthGuard, asyncHandler());
 
-// router.post("/reset-password");
+// router.post("/reset-password", authGuard, twoFactorAuthGuard, asyncHandler());
 
 export default router;

@@ -1,5 +1,6 @@
 import { sendEmail } from "./aws.ses.js";
 import { env } from "../../config/env.js";
+import { renderTemplate } from "./templates/template.loader.js";
 
 export class MailSender {
   private from: string;
@@ -20,16 +21,24 @@ export class MailSender {
     return sendEmail({ ...options, from: this.from });
   }
 
-  async sendPasswordResetEmail(to: string, resetLink: string) {
+  async sendPasswordResetEmail(to: string, link: string, username: string) {
+    const html = renderTemplate("password-reset", {
+      USERNAME: username,
+      RESET_LINK: link,
+    });
     return this.send({
       to,
       subject: "Şifre Sıfırlama Talebi",
-      html: `<a href="${resetLink}">Şifre Sıfırla</a>`,
-      text: `Link: ${resetLink}`,
+      html: `<a href="${link}">Şifre Sıfırla</a>`,
+      text: `Link: ${link}`,
     });
   }
 
-  async sendEmailChangeEmail(to: string, link: string) {
+  async sendEmailChangeEmail(to: string, link: string, username: string) {
+    const html = renderTemplate("email-change", {
+      USERNAME: username,
+      CONFIRM_LINK: link,
+    });
     return this.send({
       to,
       subject: "Email Değiştirme Talebi",
@@ -38,11 +47,15 @@ export class MailSender {
     });
   }
 
-  async sendVerificationEmail(to: string, link: string) {
+  async sendVerificationEmail(to: string, link: string, username: string) {
+    const html = renderTemplate("verify-email", {
+      USERNAME: username,
+      VERIFY_LINK: link,
+    });
     return this.send({
       to,
       subject: "Hesap Doğrulama",
-      html: `<a href="${link}">Doğrula</a>`,
+      html,
       text: `Link: ${link}`,
     });
   }

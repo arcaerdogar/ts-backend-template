@@ -1,30 +1,3 @@
-export const ERRORS = {
-  // Auth
-  NO_TOKEN: "no_token",
-  INVALID_TOKEN: "invalid_token",
-  NO_REFRESH_COOKIE: "no_refresh_cookie",
-  INVALID_CREDENTIALS: "invalid_credentials",
-  EMAIL_IN_USE: "email_in_use",
-  UNAUTHORIZED: "unauthorized",
-  NO_ACCESS: "no_access",
-
-  // Validation
-  VALIDATION_ERROR: "validation_error",
-
-  // Generic
-  INTERNAL_ERROR: "internal_error",
-  FORBIDDEN: "forbidden",
-  NOT_FOUND: "not_found",
-  CONFLICT_UNIQUE: "conflict_unique",
-
-  // Refresh token / sessions
-  BAD_TOKEN_FORMAT: "bad_token_format",
-  REVOKED: "revoked",
-  EXPIRED: "expired",
-  HASH_MISMATCH: "hash_mismatch",
-  STALE_AFTER_PASSWORD_CHANGE: "stale_after_password_change",
-} as const;
-
 export class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
@@ -43,7 +16,10 @@ export class HttpError extends Error {
     return new HttpError(409, message, code);
   }
 
-  static unauthorized(message = "Unauthorized", code = "UNAUTHORIZED") {
+  static unauthorized(
+    message = "You are not authorized for this action",
+    code = "UNAUTHORIZED"
+  ) {
     return new HttpError(401, message, code);
   }
 
