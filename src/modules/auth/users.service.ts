@@ -67,3 +67,23 @@ export const getUserInfo = async (userId: string) => {
   if (!user) throw HttpError.notFound("User not found.");
   return user;
 };
+
+export const verifyUserEmail = async (userId: string) => {
+  const verifiedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { emailVerified: true },
+  });
+  return verifiedUser;
+};
+
+export const resetUserPassword = async (
+  userId: string,
+  newPassword: string
+) => {
+  const newRaw = await argon2.hash(newPassword);
+  const updatedUser = prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: newRaw },
+  });
+  return updatedUser;
+};

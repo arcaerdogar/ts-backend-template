@@ -21,5 +21,9 @@ export const logoutSchema = z.object({
 });
 
 export const twofaSchema = z.object({
-  scope: z.enum(["change-password", "change-email", "verify-email"]),
+  scope: z.enum(["reset-password", "verify-email"]),
+});
+
+export const passwordResetSchema = z.object({
+  newPassword: z.string().min(8),
 });

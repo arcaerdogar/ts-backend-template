@@ -19,39 +19,41 @@ export function authGuard(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export async function twoFactorAuthGuard(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  const token = req.query.token as string;
-  try {
-    if (!token) throw HttpError.unauthorized("No 2FA token provided.");
-    const payload = verify2faToken(token);
-    const tokenHash = createHash("sha256").update(token).digest("hex");
-    const existingToken = await prisma.expiredTwoFactorToken.findUnique({
-      where: { tokenHash },
-    });
+export function twoFactorAuthGuard(scope: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const token = req.query.token as string;
+    try {
+      if (!token) throw HttpError.unauthorized("No 2FA token provided.");
+      const payload = verify2faToken(token);
+      const tokenHash = createHash("sha256").update(token).digest("hex");
+      const existingToken = await prisma.expiredTwoFactorToken.findUnique({
+        where: { tokenHash },
+      });
 
-    if (existingToken) {
-      throw HttpError.unauthorized("Token used.");
+      if (existingToken) {
+        throw HttpError.unauthorized("Token used.");
+      }
+
+      await prisma.expiredTwoFactorToken.create({
+        data: {
+          userId: payload.sub,
+          tokenHash,
+          usedAt: new Date(),
+          expiresAt: new Date(payload.exp * 1000),
+        },
+      });
+      const userId = (req as any).user.id;
+      if (payload.sub !== userId) {
+        throw HttpError.unauthorized("This token wasn't issued for you.");
+      }
+      if (payload.scope !== scope)
+        throw HttpError.unauthorized(
+          "This token wasn't issued for this action."
+        );
+
+      next();
+    } catch (err) {
+      throw HttpError.unauthorized("Two factor authentication failed.");
     }
-
-    await prisma.expiredTwoFactorToken.create({
-      data: {
-        userId: payload.sub,
-        tokenHash,
-        usedAt: new Date(),
-        expiresAt: new Date(payload.exp * 1000),
-      },
-    });
-    const userId = (req as any).user.id;
-    if (payload.sub !== userId) {
-      throw HttpError.unauthorized();
-    }
-
-    next();
-  } catch (err) {
-    throw HttpError.unauthorized("Two factor authentication failed.");
-  }
+  };
 }

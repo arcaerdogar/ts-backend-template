@@ -1,5 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
-import { createUser, getUserInfo, verifyUser } from "./users.service.js";
+import {
+  createUser,
+  getUserInfo,
+  resetUserPassword,
+  verifyUser,
+  verifyUserEmail,
+} from "./users.service.js";
 import { sign2faToken, signAccessToken } from "./jwt.js";
 import {
   issueRefreshToken,
@@ -85,17 +91,35 @@ export const logoutAll = async (req: Request, res: Response) => {
 };
 
 export const twofa = async (req: Request, res: Response) => {
+  // html automatically transforms token to lowercase in link format. Should send token base64 encoded to avoid this problem.
   const userId = (req as any).user.id;
   const user = await getUserInfo(userId);
   const { scope } = req.body;
   const twofaToken = sign2faToken(userId, scope);
   const mailer = new MailSender();
-  if (scope == "email-change")
+  if (scope == "change-email")
     await mailer.sendEmailChangeEmail(user.email, twofaToken, "Kullanıcı");
-  else if (scope == "password-change")
+  else if (scope == "reset-password")
     await mailer.sendPasswordResetEmail(user.email, twofaToken, "Kullanıcı");
   else if (scope == "verify-email")
     await mailer.sendVerificationEmail(user.email, twofaToken, "Kullanıcı");
   else throw HttpError.internal();
   res.status(200).json({ msg: `Verification email sent to ${user.email}` });
+};
+
+export const verifyEmail = async (req: Request, res: Response) => {
+  const userId = (req as any).user.id;
+  const verifiedUser = await verifyUserEmail(userId);
+  res
+    .status(200)
+    .json({ msg: `Mail address ${verifiedUser.email} verified for user.` });
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  const userId = (req as any).user.id;
+  const { newPassword } = req.body;
+  const updatedUser = await resetUserPassword(userId, newPassword);
+  res
+    .status(200)
+    .json({ msg: `Password reset for user with email: ${updatedUser.email}` });
 };

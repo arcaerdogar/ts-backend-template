@@ -24,7 +24,7 @@ export function verifyAccessToken(token: string) {
 }
 
 export const sign2faToken = (userId: string, scope: string) => {
-  return jwt.sign({ userId, scope }, env.jwt.secret, {
+  return jwt.sign({ sub: userId, scope }, env.jwt.secret, {
     expiresIn: `${env.jwt.twoFactorExpiresMin}m`,
   });
 };
