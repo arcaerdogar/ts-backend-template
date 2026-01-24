@@ -37,5 +37,9 @@ export const env = {
     ses: {
       senderEmail: req("SES_SENDER_EMAIL"),
     },
+    s3: {
+      bucket: req("S3_BUCKET_NAME"),
+      cdnDomain: process.env.CDN_DOMAIN, // Optional
+    },
   },
 };
