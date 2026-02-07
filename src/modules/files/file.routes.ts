@@ -37,7 +37,7 @@ router.get(
   "/download",
   authGuard,
   validateQuery(getDownloadUrlSchema),
-  asyncHandler(getDownloadUrl as any),
+  asyncHandler(getDownloadUrl),
 );
 
 router.delete("/:key", authGuard, asyncHandler(deleteFile));
