@@ -5,7 +5,7 @@ export const initUploadSchema = z.object({
   fileName: z.string().min(1),
   mimeType: z.string().includes("/"), // Basic mime check
   size: z.number().positive(),
-  purpose: z.nativeEnum(FilePurpose),
+  purpose: z.enum(FilePurpose),
   checksum: z.string().min(10, "Invalid checksum"), // Basic length check for SHA256 base64
 });
 

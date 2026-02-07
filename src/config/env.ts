@@ -21,15 +21,6 @@ export const env = {
     expireDays: Number(req("REFRESH_EXPIRES_DAYS")),
   },
 
-  mailService: {
-    host: req("MAIL_HOST"),
-    port: req("MAIL_PORT"),
-    secure: req("MAIL_SECURE"),
-    user: req("MAIL_USER"),
-    pass: req("MAIL_PASS"),
-    from: req("MAIL_FROM"),
-  },
-
   aws: {
     region: req("AWS_REGION"),
     accessKeyId: req("AWS_ACCESS_KEY_ID"),
@@ -41,5 +32,14 @@ export const env = {
       bucket: req("S3_BUCKET_NAME"),
       cdnDomain: process.env.CDN_DOMAIN, // Optional
     },
+  },
+
+  redis: {
+    url: req("REDIS_URL"),
+  },
+
+  admin: {
+    email: req("ADMIN_EMAIL"),
+    password: req("ADMIN_PASSWORD"),
   },
 };

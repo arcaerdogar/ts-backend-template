@@ -26,17 +26,20 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.972.0",
-    "@aws-sdk/client-ses": "^3.930.0",
-    "@aws-sdk/s3-request-presigner": "^3.972.0",
+    "@aws-sdk/client-s3": "^3.893.0",
+    "@aws-sdk/client-ses": "^3.893.0",
+    "@aws-sdk/s3-request-presigner": "^3.893.0",
     "@prisma/client": "^6.18.0",
     "@types/express": "^5.0.3",
     "argon2": "^0.44.0",
+    "bullmq": "^5.67.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "handlebars": "^4.7.8",
+    "ioredis": "^5.9.2",
     "jsonwebtoken": "^9.0.2",
+    "uuid": "^13.0.0",
     "zod": "^4.1.12"
   }
 }

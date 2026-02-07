@@ -1,4 +1,5 @@
 import { env } from "./config/env.js";
+import "./services/mail-service/emailWorker.js";
 import server from "./server.js";
 
 const port = env.port || 3000;
