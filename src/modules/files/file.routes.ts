@@ -40,6 +40,6 @@ router.get(
   asyncHandler(getDownloadUrl),
 );
 
-router.delete("/:key", authGuard, asyncHandler(deleteFile));
+router.delete("/*key", authGuard, asyncHandler(deleteFile));
 
 export default router;
