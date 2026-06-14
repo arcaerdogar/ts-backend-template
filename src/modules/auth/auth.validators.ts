@@ -20,9 +20,15 @@ export const logoutSchema = z.object({
   refreshToken: z.string(),
 });
 
-export const twofaSchema = z.object({
-  scope: z.enum(["reset-password", "verify-email"]),
-});
+export const twofaSchema = z
+  .object({
+    scope: z.enum(["reset-password", "verify-email", "change-email"]),
+    newEmail: z.email().optional(),
+  })
+  .refine((data) => data.scope !== "change-email" || !!data.newEmail, {
+    message: "newEmail is required when scope is 'change-email'",
+    path: ["newEmail"],
+  });
 
 export const passwordResetSchema = z.object({
   newPassword: z.string().min(8),

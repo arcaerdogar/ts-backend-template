@@ -194,9 +194,10 @@ Critical actions (Password Reset, Email Change) require a short-lived **2FA Toke
 | `POST` | `/auth/logout`         | Logout current session  | -                                                     | `{ "refreshToken": "..." }`                     |
 | `POST` | `/auth/logout-all`     | Logout all sessions     | `Authorization: Bearer <token>`                       | -                                               |
 | `POST` | `/auth/refresh`        | Refresh access token    | -                                                     | `{ "refreshToken": "...", "deviceId": "uuid" }` |
-| `POST` | `/auth/2fa`            | Request 2FA OTP         | `Authorization: Bearer <token>`                       | `{ "scope": "verify-email"                      | "reset-password" }` |
+| `POST` | `/auth/2fa`            | Request 2FA OTP         | `Authorization: Bearer <token>`                       | `{ "scope": "verify-email" \| "reset-password" \| "change-email", "newEmail": "..." }` (`newEmail` required when `scope` is `"change-email"`) |
 | `POST` | `/auth/verify-email`   | Verify Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
 | `POST` | `/auth/reset-password` | Reset Password with 2FA | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | `{ "newPassword": "new-strong-password" }`      |
+| `POST` | `/auth/change-email`   | Change Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
 
 ### 📂 Upload Module
 
