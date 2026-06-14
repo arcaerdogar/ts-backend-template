@@ -111,7 +111,8 @@ export async function getDownloadUrl(req: Request, res: Response) {
 }
 
 export async function deleteFile(req: Request, res: Response) {
-  const { key } = req.params;
+  const keyParam = req.params.key;
+  const key = Array.isArray(keyParam) ? keyParam.join("/") : keyParam;
   if (!key) throw HttpError.badRequest("Key is required");
 
   const userId = (req as any).user.id;

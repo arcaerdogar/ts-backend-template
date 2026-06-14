@@ -1,4 +1,10 @@
-import { PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  CopyObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client } from "../aws/aws.config.js";
 import { env } from "../../config/env.js";
@@ -15,7 +21,7 @@ export class S3Service implements IStorageService {
     size: number,
     checksumSHA256: string,
   ): Promise<{ url: string; key: string }> {
-    const fullKey = `${prefix}/${key}`;
+    const fullKey = prefix ? `${prefix}/${key}` : key;
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
@@ -48,7 +54,6 @@ export class S3Service implements IStorageService {
   async checkExists(
     key: string,
   ): Promise<{ size: number; mimeType: string; etag: string }> {
-    const { HeadObjectCommand } = await import("@aws-sdk/client-s3");
     const command = new HeadObjectCommand({
       Bucket: this.bucket,
       Key: key,
@@ -63,9 +68,6 @@ export class S3Service implements IStorageService {
   }
 
   async move(sourceKey: string, destinationKey: string): Promise<void> {
-    const { CopyObjectCommand, DeleteObjectCommand } =
-      await import("@aws-sdk/client-s3");
-
     // 1. Copy
     const copyCommand = new CopyObjectCommand({
       Bucket: this.bucket,
@@ -83,8 +85,6 @@ export class S3Service implements IStorageService {
   }
 
   async getPresignedDownloadUrl(key: string): Promise<string> {
-    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
-
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: key,

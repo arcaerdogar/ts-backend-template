@@ -6,7 +6,7 @@ export const createUser = async (emailRaw: string, passwordRaw: string) => {
   const email = emailRaw.trim().toLowerCase();
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists)
-    throw HttpError.conflict("EMAIL_IN_USE", "This email is already in use.");
+    throw HttpError.conflict("This email is already in use.", "EMAIL_IN_USE");
 
   const passwordHash = await argon2.hash(passwordRaw);
 
@@ -83,7 +83,7 @@ export const resetUserPassword = async (
   const newRaw = await argon2.hash(newPassword);
   const updatedUser = prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: newRaw },
+    data: { passwordHash: newRaw, passwordChangedAt: new Date() },
   });
   return updatedUser;
 };
