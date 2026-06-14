@@ -24,11 +24,11 @@ export function verifyAccessToken(token: string) {
 }
 
 export const sign2faToken = (userId: string, scope: string) => {
-  return jwt.sign({ sub: userId, scope }, env.jwt.secret, {
+  return jwt.sign({ sub: userId, scope }, env.jwt.twoFactorSecret, {
     expiresIn: `${env.jwt.twoFactorExpiresMin}m`,
   });
 };
 
 export const verify2faToken = (token: string) => {
-  return jwt.verify(token, env.jwt.secret) as TwoFactorPayload;
+  return jwt.verify(token, env.jwt.twoFactorSecret) as TwoFactorPayload;
 };

@@ -15,6 +15,7 @@ export const env = {
     secret: req("JWT_SECRET"),
     accessExpiresMin: Number(req("JWT_ACCESS_EXPIRES_MIN")),
     twoFactorExpiresMin: Number(req("JWT_TWO_FACTOR_EXPIRES_MIN")),
+    twoFactorSecret: req("JWT_TWO_FACTOR_SECRET"),
   },
 
   refresh: {

@@ -45,6 +45,8 @@ DATABASE_URL="postgresql://user:pass@host:5432/db"
 # Auth
 JWT_SECRET="complex-secret"
 JWT_ACCESS_EXPIRES_MIN=15
+JWT_TWO_FACTOR_EXPIRES_MIN=10
+JWT_TWO_FACTOR_SECRET="another-complex-secret"
 REFRESH_EXPIRES_DAYS=30
 REFRESH_TOKEN_HASH_SECRET="another-long-random-secret"
 
