@@ -85,14 +85,14 @@ export const logout = async (req: Request, res: Response) => {
 };
 
 export const logoutAll = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   await revokeAll(userId);
   res.status(200).json({ msg: "Logged out from all devices." });
 };
 
 export const twofa = async (req: Request, res: Response) => {
   // html automatically transforms token to lowercase in link format. Should send token base64 encoded to avoid this problem.
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   const user = await getUserInfo(userId);
   const { scope } = req.body;
   const twofaToken = sign2faToken(userId, scope);
@@ -108,7 +108,7 @@ export const twofa = async (req: Request, res: Response) => {
 };
 
 export const verifyEmail = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   const verifiedUser = await verifyUserEmail(userId);
   res
     .status(200)
@@ -116,7 +116,7 @@ export const verifyEmail = async (req: Request, res: Response) => {
 };
 
 export const resetPassword = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   const { newPassword } = req.body;
   const updatedUser = await resetUserPassword(userId, newPassword);
   res
