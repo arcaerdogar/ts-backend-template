@@ -3,10 +3,11 @@ import {
   createUser,
   getUserInfo,
   resetUserPassword,
+  updateUserEmail,
   verifyUser,
   verifyUserEmail,
 } from "./users.service.js";
-import { sign2faToken, signAccessToken } from "./jwt.js";
+import { sign2faToken, signAccessToken, verify2faToken } from "./jwt.js";
 import {
   issueRefreshToken,
   verifyAndRotate,
@@ -85,17 +86,20 @@ export const logout = async (req: Request, res: Response) => {
 };
 
 export const logoutAll = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   await revokeAll(userId);
   res.status(200).json({ msg: "Logged out from all devices." });
 };
 
 export const twofa = async (req: Request, res: Response) => {
   // html automatically transforms token to lowercase in link format. Should send token base64 encoded to avoid this problem.
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   const user = await getUserInfo(userId);
-  const { scope } = req.body;
-  const twofaToken = sign2faToken(userId, scope);
+  const { scope, newEmail } = req.body;
+  const twofaToken =
+    scope === "change-email"
+      ? sign2faToken(userId, scope, { newEmail })
+      : sign2faToken(userId, scope);
   const mailer = new MailSender();
   if (scope == "change-email")
     await mailer.sendEmailChangeEmail(user.email, twofaToken, "Kullanıcı");
@@ -108,7 +112,7 @@ export const twofa = async (req: Request, res: Response) => {
 };
 
 export const verifyEmail = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   const verifiedUser = await verifyUserEmail(userId);
   res
     .status(200)
@@ -116,10 +120,20 @@ export const verifyEmail = async (req: Request, res: Response) => {
 };
 
 export const resetPassword = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
   const { newPassword } = req.body;
   const updatedUser = await resetUserPassword(userId, newPassword);
   res
     .status(200)
     .json({ msg: `Password reset for user with email: ${updatedUser.email}` });
+};
+
+export const changeEmail = async (req: Request, res: Response) => {
+  const token = req.query.token as string;
+  const payload = verify2faToken(token);
+  if (!payload.newEmail) {
+    throw HttpError.badRequest("Invalid token: missing newEmail.");
+  }
+  const updatedUser = await updateUserEmail(req.user!.id, payload.newEmail);
+  res.status(200).json({ msg: `Email changed to ${updatedUser.email}` });
 };

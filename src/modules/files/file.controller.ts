@@ -77,7 +77,7 @@ export async function confirmUpload(req: Request, res: Response) {
       size: metadata.size,
       purpose,
       checksum: metadata.etag, // Store MD5/ETag as checksum
-      userId: (req as any).user.id,
+      userId: req.user!.id,
     },
   });
 
@@ -89,7 +89,7 @@ export async function confirmUpload(req: Request, res: Response) {
 
 export async function getDownloadUrl(req: Request, res: Response) {
   const { key } = (req as any).query;
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
 
   // Check if file exists in DB and is active
   const file = await prisma.file.findUnique({ where: { key, isActive: true } });
@@ -115,7 +115,7 @@ export async function deleteFile(req: Request, res: Response) {
   const key = Array.isArray(keyParam) ? keyParam.join("/") : keyParam;
   if (!key) throw HttpError.badRequest("Key is required");
 
-  const userId = (req as any).user.id;
+  const userId = req.user!.id;
 
   // Find file and verify ownership
   const file = await prisma.file.findUnique({ where: { key, isActive: true } });

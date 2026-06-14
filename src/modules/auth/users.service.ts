@@ -54,6 +54,8 @@ export const getUserInfo = async (userId: string) => {
       emailVerified: true,
       refreshTokens: {
         where: { revoked: false },
+        take: 20,
+        orderBy: { createdAt: "desc" },
         select: {
           userAgent: true,
           ip: true,
@@ -84,6 +86,19 @@ export const resetUserPassword = async (
   const updatedUser = prisma.user.update({
     where: { id: userId },
     data: { passwordHash: newRaw, passwordChangedAt: new Date() },
+  });
+  return updatedUser;
+};
+
+export const updateUserEmail = async (userId: string, newEmailRaw: string) => {
+  const newEmail = newEmailRaw.trim().toLowerCase();
+  const exists = await prisma.user.findUnique({ where: { email: newEmail } });
+  if (exists)
+    throw HttpError.conflict("This email is already in use.", "EMAIL_IN_USE");
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { email: newEmail, emailVerified: false },
   });
   return updatedUser;
 };

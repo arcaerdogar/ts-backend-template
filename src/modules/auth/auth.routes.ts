@@ -9,6 +9,7 @@ import {
 } from "./auth.validators.js";
 import { asyncHandler } from "../common/asyncHandler.js";
 import {
+  changeEmail,
   login,
   logout,
   logoutAll,
@@ -46,6 +47,13 @@ router.post(
   authGuard,
   twoFactorAuthGuard("reset-password"),
   asyncHandler(resetPassword)
+);
+
+router.post(
+  "/change-email",
+  authGuard,
+  twoFactorAuthGuard("change-email"),
+  asyncHandler(changeEmail)
 );
 
 export default router;

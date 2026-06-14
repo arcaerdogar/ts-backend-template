@@ -10,7 +10,7 @@ export function authGuard(req: Request, res: Response, next: NextFunction) {
   if (!token) throw HttpError.unauthorized("No token provided.");
   try {
     const payload = verifyAccessToken(token);
-    (req as any).user = {
+    req.user = {
       id: payload.sub,
     };
     next();
@@ -42,7 +42,7 @@ export function twoFactorAuthGuard(scope: string) {
           expiresAt: new Date(payload.exp * 1000),
         },
       });
-      const userId = (req as any).user.id;
+      const userId = req.user!.id;
       if (payload.sub !== userId) {
         throw HttpError.unauthorized("This token wasn't issued for you.");
       }

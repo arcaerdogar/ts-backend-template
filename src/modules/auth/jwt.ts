@@ -9,6 +9,7 @@ type AccessPayload = {
 type TwoFactorPayload = {
   sub: string;
   scope: string;
+  newEmail?: string;
   iat?: number;
   exp: number;
 };
@@ -23,12 +24,16 @@ export function verifyAccessToken(token: string) {
   return jwt.verify(token, env.jwt.secret) as AccessPayload;
 }
 
-export const sign2faToken = (userId: string, scope: string) => {
-  return jwt.sign({ sub: userId, scope }, env.jwt.secret, {
+export const sign2faToken = (
+  userId: string,
+  scope: string,
+  extra?: Record<string, unknown>
+) => {
+  return jwt.sign({ sub: userId, scope, ...extra }, env.jwt.twoFactorSecret, {
     expiresIn: `${env.jwt.twoFactorExpiresMin}m`,
   });
 };
 
 export const verify2faToken = (token: string) => {
-  return jwt.verify(token, env.jwt.secret) as TwoFactorPayload;
+  return jwt.verify(token, env.jwt.twoFactorSecret) as TwoFactorPayload;
 };
