@@ -21,7 +21,7 @@ export class S3Service implements IStorageService {
     size: number,
     checksumSHA256: string,
   ): Promise<{ url: string; key: string }> {
-    const fullKey = `${prefix}/${key}`;
+    const fullKey = prefix ? `${prefix}/${key}` : key;
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
