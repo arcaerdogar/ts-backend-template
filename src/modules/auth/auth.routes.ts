@@ -20,12 +20,18 @@ import {
   verifyEmail,
 } from "./auth.controller.js";
 import { authGuard, twoFactorAuthGuard } from "../common/authGuard.js";
+import { loginLimiter, registerLimiter, twoFaLimiter } from "../common/rateLimiter.js";
 
 const router = Router();
 
-router.post("/register", validateBody(registerSchema), asyncHandler(register));
+router.post(
+  "/register",
+  registerLimiter,
+  validateBody(registerSchema),
+  asyncHandler(register)
+);
 
-router.post("/login", validateBody(loginSchema), asyncHandler(login));
+router.post("/login", loginLimiter, validateBody(loginSchema), asyncHandler(login));
 
 router.post("/logout", validateBody(logoutSchema), asyncHandler(logout));
 
@@ -33,7 +39,13 @@ router.post("/logout-all", authGuard, asyncHandler(logoutAll));
 
 router.post("/refresh", validateBody(refreshSchema), asyncHandler(refresh));
 
-router.post("/2fa", authGuard, validateBody(twofaSchema), asyncHandler(twofa));
+router.post(
+  "/2fa",
+  twoFaLimiter,
+  authGuard,
+  validateBody(twofaSchema),
+  asyncHandler(twofa)
+);
 
 router.post(
   "/verify-email",
