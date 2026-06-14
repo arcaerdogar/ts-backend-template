@@ -6,10 +6,18 @@ import Handlebars from "handlebars";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export function renderTemplate(name: string, data: Record<string, any>) {
-  const filePath = path.join(__dirname, `${name}.hbs`);
-  const fileContent = fs.readFileSync(filePath, "utf8");
+const templateCache = new Map<string, Handlebars.TemplateDelegate>();
 
-  const template = Handlebars.compile(fileContent);
+export function renderTemplate(name: string, data: Record<string, any>) {
+  let template = templateCache.get(name);
+
+  if (!template) {
+    const filePath = path.join(__dirname, `${name}.hbs`);
+    const fileContent = fs.readFileSync(filePath, "utf8");
+
+    template = Handlebars.compile(fileContent);
+    templateCache.set(name, template);
+  }
+
   return template(data);
 }
