@@ -45,7 +45,7 @@ export const login = async (req: Request, res: Response) => {
   const { email, password, deviceId } = (req as any).body;
   const user = await verifyUser(email, password);
   const accessToken = signAccessToken(user.id);
-  if (deviceId) revokeActiveTokensForDevice(user.id, deviceId);
+  if (deviceId) await revokeActiveTokensForDevice(user.id, deviceId);
   const session = await issueRefreshToken(
     user.id,
     req.headers["user-agent"],
