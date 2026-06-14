@@ -54,6 +54,8 @@ export const getUserInfo = async (userId: string) => {
       emailVerified: true,
       refreshTokens: {
         where: { revoked: false },
+        take: 20,
+        orderBy: { createdAt: "desc" },
         select: {
           userAgent: true,
           ip: true,
