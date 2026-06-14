@@ -40,6 +40,10 @@ Copy `env.example` to `.env` and fill in the values:
 
 ```env
 PORT=3000
+
+# CORS
+ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173"
+
 DATABASE_URL="postgresql://user:pass@host:5432/db"
 
 # Auth

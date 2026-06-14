@@ -1,6 +1,9 @@
 import express from "express";
 import type { Request, Response } from "express";
 import cookieParser from "cookie-parser";
+import cors from "cors";
+import helmet from "helmet";
+import { env } from "./config/env.js";
 import {
   notFoundHandler,
   globalErrorHandler,
@@ -10,6 +13,9 @@ import meRouter from "./modules/auth/meRoutes/me.routes.js";
 import fileRouter from "./modules/files/file.routes.js";
 
 const server = express();
+
+server.use(helmet());
+server.use(cors({ origin: env.allowedOrigins, credentials: true }));
 
 server.use(express.json({ limit: "5mb" }));
 server.use(cookieParser());

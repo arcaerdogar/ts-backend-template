@@ -11,6 +11,11 @@ function req(name: string): string {
 export const env = {
   port: Number(req("PORT")),
 
+  allowedOrigins: req("ALLOWED_ORIGINS")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+
   jwt: {
     secret: req("JWT_SECRET"),
     accessExpiresMin: Number(req("JWT_ACCESS_EXPIRES_MIN")),
