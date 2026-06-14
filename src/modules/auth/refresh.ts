@@ -1,6 +1,5 @@
 import { prisma } from "../../config/db.js";
-import { randomBytes, randomUUID } from "crypto";
-import argon2 from "argon2";
+import { randomBytes, randomUUID, createHmac, timingSafeEqual } from "crypto";
 import { env } from "../../config/env.js";
 import { HttpError } from "../common/errors.js";
 
@@ -10,6 +9,20 @@ function b64url(buf: Buffer) {
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
+}
+
+function hashToken(raw: string): string {
+  return createHmac("sha256", env.refresh.tokenHashSecret)
+    .update(raw)
+    .digest("hex");
+}
+
+function verifyTokenHash(raw: string, hash: string): boolean {
+  const computed = hashToken(raw);
+  const a = Buffer.from(computed, "hex");
+  const b = Buffer.from(hash, "hex");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 export async function issueRefreshToken(
@@ -24,7 +37,7 @@ export async function issueRefreshToken(
   }
   const secret = b64url(randomBytes(32));
   const raw = `${jti}.${secret}`;
-  const tokenHash = await argon2.hash(raw);
+  const tokenHash = hashToken(raw);
 
   const expiresAt = new Date(
     Date.now() + env.refresh.expireDays * 24 * 3600 * 1000
@@ -84,7 +97,7 @@ export async function verifyAndRotate(
       );
     }
 
-    const ok = await argon2.verify(rec.tokenHash, oldRaw);
+    const ok = verifyTokenHash(oldRaw, rec.tokenHash);
     if (!ok) {
       await tx.refreshToken.update({ where: { jti }, data: { revoked: true } });
       throw HttpError.unauthorized("Invalid session.");
@@ -100,7 +113,7 @@ export async function verifyAndRotate(
     const newJti = randomUUID();
     const secret2 = b64url(randomBytes(32));
     const newRaw = `${newJti}.${secret2}`;
-    const tokenHash2 = await argon2.hash(newRaw);
+    const tokenHash2 = hashToken(newRaw);
     const expiresAt = new Date(
       Date.now() + env.refresh.expireDays * 24 * 3600 * 1000
     );

@@ -46,6 +46,7 @@ DATABASE_URL="postgresql://user:pass@host:5432/db"
 JWT_SECRET="complex-secret"
 JWT_ACCESS_EXPIRES_MIN=15
 REFRESH_EXPIRES_DAYS=30
+REFRESH_TOKEN_HASH_SECRET="another-long-random-secret"
 
 # AWS Configuration
 AWS_REGION="eu-north-1"

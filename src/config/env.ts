@@ -19,6 +19,7 @@ export const env = {
 
   refresh: {
     expireDays: Number(req("REFRESH_EXPIRES_DAYS")),
+    tokenHashSecret: req("REFRESH_TOKEN_HASH_SECRET"),
   },
 
   aws: {
