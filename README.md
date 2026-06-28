@@ -51,8 +51,15 @@ JWT_SECRET="complex-secret"
 JWT_ACCESS_EXPIRES_MIN=15
 JWT_TWO_FACTOR_EXPIRES_MIN=10
 JWT_TWO_FACTOR_SECRET="another-complex-secret"
+JWT_ROOT_EXPIRES_MIN=60          # Optional (default 60). Root admin token lifetime.
 REFRESH_EXPIRES_DAYS=30
 REFRESH_TOKEN_HASH_SECRET="another-long-random-secret"
+
+# Root Admin Panel
+ADMIN_EMAIL="root@myapp.com"
+ADMIN_PASSWORD="strong-root-password"
+ROOT_ACCESS_COOKIE_NAME="root_access"   # Optional
+COOKIE_SECURE=false                       # Optional (auto true in production)
 
 # AWS Configuration
 AWS_REGION="eu-north-1"
@@ -202,6 +209,35 @@ Critical actions (Password Reset, Email Change) require a short-lived **2FA Toke
 | `POST` | `/auth/verify-email`   | Verify Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
 | `POST` | `/auth/reset-password` | Reset Password with 2FA | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | `{ "newPassword": "new-strong-password" }`      |
 | `POST` | `/auth/change-email`   | Change Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
+
+### 👑 Roles & Admin
+
+The template ships with a two-tier admin model:
+
+- **Root Admin** — a single, env-bootstrapped super user (`ADMIN_EMAIL` / `ADMIN_PASSWORD`). Not stored in the DB. Logs in to receive an HttpOnly `root_access` cookie (token is also returned in the body for non-browser clients). Its sole purpose is granting/revoking the `SYSTEM_ADMIN` role.
+- **System Admin** — a regular user who has been granted the `SYSTEM_ADMIN` role (via the `HasRole` table) by the Root Admin. Authenticates with a normal access token and can manage end users (list, inspect, suspend).
+
+Guards: `rootAuthGuard` (root only), `adminRouteAuthGuard` (access JWT **or** root JWT), and `roleAuthGuard([RoleName.SYSTEM_ADMIN], { allowRoot: true })`.
+
+#### 🪪 Root Module (`/root`)
+
+| Method | Endpoint                     | Auth        | Payload                                  | Description                          |
+| :----- | :--------------------------- | :---------- | :--------------------------------------- | :----------------------------------- |
+| `POST` | `/root/login`                | -           | `{ "email": "...", "password": "..." }`  | Login as root (sets `root_access` cookie) |
+| `POST` | `/root/logout`               | -           | -                                        | Clear root cookie                    |
+| `POST` | `/root/manage-system-admin`  | Root cookie/Bearer | `{ "userId": "uuid", "assign": true }` | Grant (`true`) / revoke (`false`) `SYSTEM_ADMIN` |
+
+#### 👥 Admin User Module (`/users`)
+
+Requires `SYSTEM_ADMIN` role (or root).
+
+| Method  | Endpoint              | Payload                  | Description                                   |
+| :------ | :-------------------- | :----------------------- | :-------------------------------------------- |
+| `GET`   | `/users`              | query: `page,limit,q`    | Paginated user list with email search         |
+| `GET`   | `/users/:id`          | -                        | User detail (roles + active sessions)         |
+| `PATCH` | `/users/:id/suspend`  | `{ "suspended": true }`  | Suspend/unsuspend. Suspending revokes all refresh sessions. |
+
+> **Account protection:** `login` now rejects suspended accounts (`ACCOUNT_SUSPENDED`) and temporarily locks accounts after 5 consecutive failed attempts for 15 minutes (`ACCOUNT_LOCKED`).
 
 ### 📂 Upload Module
 

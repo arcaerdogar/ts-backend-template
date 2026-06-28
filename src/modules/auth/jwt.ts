@@ -14,6 +14,13 @@ type TwoFactorPayload = {
   exp: number;
 };
 
+type RootPayload = {
+  sub: "root";
+  scope: "root";
+  iat?: number;
+  exp: number;
+};
+
 export const signAccessToken = (userId: string) => {
   return jwt.sign({ sub: userId }, env.jwt.secret, {
     expiresIn: `${env.jwt.accessExpiresMin}m`,
@@ -36,4 +43,14 @@ export const sign2faToken = (
 
 export const verify2faToken = (token: string) => {
   return jwt.verify(token, env.jwt.twoFactorSecret) as TwoFactorPayload;
+};
+
+export const signRootToken = () => {
+  return jwt.sign({ sub: "root", scope: "root" }, env.jwt.secret, {
+    expiresIn: `${env.jwt.rootExpiresMin}m`,
+  });
+};
+
+export const verifyRootToken = (token: string) => {
+  return jwt.verify(token, env.jwt.secret) as RootPayload;
 };

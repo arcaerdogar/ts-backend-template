@@ -21,6 +21,15 @@ export const env = {
     accessExpiresMin: Number(req("JWT_ACCESS_EXPIRES_MIN")),
     twoFactorExpiresMin: Number(req("JWT_TWO_FACTOR_EXPIRES_MIN")),
     twoFactorSecret: req("JWT_TWO_FACTOR_SECRET"),
+    /** Root admin JWT (cookie + Bearer) süresi (dakika). Varsayılan 60. */
+    rootExpiresMin: Number(process.env.JWT_ROOT_EXPIRES_MIN ?? "60"),
+  },
+
+  cookies: {
+    rootAccessName: process.env.ROOT_ACCESS_COOKIE_NAME ?? "root_access",
+    secure:
+      process.env.COOKIE_SECURE === "true" ||
+      process.env.NODE_ENV === "production",
   },
 
   refresh: {

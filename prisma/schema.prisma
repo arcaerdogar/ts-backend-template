@@ -23,6 +23,21 @@ model User {
   refreshTokens         RefreshToken[]
   expiredTwoFactorTokens ExpiredTwoFactorToken[]
   files                 File[]
+  roles                 HasRole[]
+}
+
+enum RoleName {
+  SYSTEM_ADMIN
+}
+
+model HasRole {
+  id     String   @id @default(uuid())
+  userId String
+  role   RoleName
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
 }
 
 model RefreshToken {
