@@ -48,10 +48,14 @@ export class MailSender {
   }
 
   async sendAccountDeletionEmail(to: string, link: string, username: string) {
+    const html = renderTemplate("delete-account", {
+      USERNAME: username,
+      DELETE_LINK: link,
+    });
     return this.send({
       to,
       subject: "Hesap Silme Talebi",
-      html: `<a href="${link}">Hesabı kalıcı olarak sil</a>`,
+      html,
       text: `Link: ${link}`,
     });
   }
