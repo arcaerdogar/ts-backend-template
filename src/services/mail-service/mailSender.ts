@@ -47,6 +47,15 @@ export class MailSender {
     });
   }
 
+  async sendAccountDeletionEmail(to: string, link: string, username: string) {
+    return this.send({
+      to,
+      subject: "Hesap Silme Talebi",
+      html: `<a href="${link}">Hesabı kalıcı olarak sil</a>`,
+      text: `Link: ${link}`,
+    });
+  }
+
   async sendVerificationEmail(to: string, link: string, username: string) {
     const html = renderTemplate("verify-email", {
       USERNAME: username,

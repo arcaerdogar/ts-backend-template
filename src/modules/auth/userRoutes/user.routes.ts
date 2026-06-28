@@ -13,6 +13,7 @@ import {
   listUsersHandler,
   getUserByIdHandler,
   suspendUserHandler,
+  deleteUserHandler,
 } from "./user.controllers.js";
 import { asyncHandler } from "../../common/asyncHandler.js";
 import { adminRouteAuthGuard, roleAuthGuard } from "../../common/authGuard.js";
@@ -46,6 +47,14 @@ router.patch(
   validateParams(userIdParamSchema),
   validateBody(suspendUserBodySchema),
   asyncHandler(suspendUserHandler)
+);
+
+router.delete(
+  "/:id",
+  adminRouteAuthGuard,
+  adminGuard,
+  validateParams(userIdParamSchema),
+  asyncHandler(deleteUserHandler)
 );
 
 export default router;

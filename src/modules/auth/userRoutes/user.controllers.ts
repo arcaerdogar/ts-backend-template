@@ -3,6 +3,7 @@ import {
   listUsersPaginated,
   getUserByIdForAdmin,
   setUserSuspended,
+  deleteUser,
 } from "../users.service.js";
 
 export async function listUsersHandler(req: Request, res: Response) {
@@ -26,4 +27,10 @@ export async function suspendUserHandler(req: Request, res: Response) {
   const { suspended } = req.body as { suspended: boolean };
   const result = await setUserSuspended(id, suspended);
   res.json(result);
+}
+
+export async function deleteUserHandler(req: Request, res: Response) {
+  const { id } = req.params as { id: string };
+  const result = await deleteUser(id, { ip: req.ip });
+  res.json({ msg: "User deleted.", ...result });
 }

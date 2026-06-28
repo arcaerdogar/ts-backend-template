@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { authGuard } from "../../common/authGuard.js";
+import { authGuard, twoFactorAuthGuard } from "../../common/authGuard.js";
 import { asyncHandler } from "../../common/asyncHandler.js";
 import { validateBody } from "../../common/validate.js";
 import {
   getSelfInfo,
   updateProfileHandler,
   setProfilePhotoHandler,
+  deleteSelfHandler,
 } from "./me.controllers.js";
 import {
   updateProfileSchema,
@@ -30,6 +31,14 @@ r.put(
   authGuard,
   validateBody(setProfilePhotoSchema),
   asyncHandler(setProfilePhotoHandler)
+);
+
+// Kalıcı hesap silme. 2FA (delete-account scope) OTP'si ?token= ile gelir.
+r.delete(
+  "/",
+  authGuard,
+  twoFactorAuthGuard("delete-account"),
+  asyncHandler(deleteSelfHandler)
 );
 
 export default r;

@@ -10,6 +10,7 @@ import { RoleName } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { claimTwoFactorToken } from "../auth/twoFactorDenylist.js";
 import { recordAuthEvent } from "../auth/authEvent.js";
+import { isUserBlocked } from "../auth/blocklist.js";
 
 function readBearer(req: Request): string | undefined {
   const h = req.headers.authorization || "";
@@ -86,27 +87,36 @@ export function roleAuthGuard(
  * Admin route'ları: normal access JWT (Bearer) veya root JWT
  * (Bearer ya da HttpOnly cookie) ile erişime izin verir.
  */
-export function adminRouteAuthGuard(
+export async function adminRouteAuthGuard(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   const bearer = readBearer(req);
   if (bearer) {
+    // Önce normal access token; geçerliyse blocklist kontrolü yapılır.
+    let accessPayload: { sub: string } | null = null;
     try {
-      const payload = verifyAccessToken(bearer);
-      req.user = { id: payload.sub };
-      return next();
+      accessPayload = verifyAccessToken(bearer);
     } catch {
-      try {
-        const payload = verifyRootToken(bearer);
-        if (payload.sub === "root" && payload.scope === "root") {
-          req.user = { id: "root", role: "root" };
-          return next();
-        }
-      } catch {
-        /* cookie'ye düş */
+      accessPayload = null;
+    }
+    if (accessPayload) {
+      if (await isUserBlocked(accessPayload.sub))
+        throw HttpError.unauthorized("Session revoked.");
+      req.user = { id: accessPayload.sub };
+      return next();
+    }
+
+    // Access token değilse root token olarak dene.
+    try {
+      const payload = verifyRootToken(bearer);
+      if (payload.sub === "root" && payload.scope === "root") {
+        req.user = { id: "root", role: "root" };
+        return next();
       }
+    } catch {
+      /* cookie'ye düş */
     }
   }
 
@@ -128,19 +138,28 @@ export function adminRouteAuthGuard(
   throw HttpError.unauthorized("You are not authorized for this action");
 }
 
-export function authGuard(req: Request, res: Response, next: NextFunction) {
+export async function authGuard(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const h = req.headers.authorization || "";
   const token = h.startsWith("Bearer ") ? h.slice(7) : "";
   if (!token) throw HttpError.unauthorized("No token provided.");
+
+  let payload;
   try {
-    const payload = verifyAccessToken(token);
-    req.user = {
-      id: payload.sub,
-    };
-    next();
+    payload = verifyAccessToken(token);
   } catch {
     throw HttpError.unauthorized("You are not authorized for this action");
   }
+
+  // Stateless JWT'nin anlık-iptal boşluğunu kapatır (suspend/delete sonrası).
+  if (await isUserBlocked(payload.sub))
+    throw HttpError.unauthorized("Session revoked.");
+
+  req.user = { id: payload.sub };
+  next();
 }
 
 export function twoFactorAuthGuard(scope: string) {

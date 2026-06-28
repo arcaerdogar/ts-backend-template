@@ -137,6 +137,8 @@ export const twofa = async (req: Request, res: Response) => {
     await mailer.sendPasswordResetEmail(user.email, twofaToken, "Kullanıcı");
   else if (scope == "verify-email")
     await mailer.sendVerificationEmail(user.email, twofaToken, "Kullanıcı");
+  else if (scope == "delete-account")
+    await mailer.sendAccountDeletionEmail(user.email, twofaToken, "Kullanıcı");
   else throw HttpError.internal();
   await recordAuthEvent({
     type: "TWO_FA_ISSUED",

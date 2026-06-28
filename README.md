@@ -223,6 +223,7 @@ Sessions live in **Redis** (TTL-based, AOF-durable) — not Postgres. See [ADR 0
 - **Device Binding**: Every session is bound to a unique `deviceId`. A Refresh Token is only valid for the device it was issued to. On `login` with a given `deviceId`, the previous active session for that device is revoked (Single Active Session per Device).
 - **Token Hashing**: Only the **HMAC-SHA256** hash of the token is stored; the raw secret never touches storage. Knowing a `jti` without its secret is useless.
 - **Critical Action Invalidation**: Changing the password (or suspending the account) **eagerly revokes all sessions** — immediate global logout.
+- **Immediate access-token revocation**: Access tokens are stateless JWTs, so suspending or deleting a user also adds them to a Redis **blocklist** (`blocked:user:<id>`, TTL = access-token lifetime). `authGuard` checks it on every request, closing the ~15-minute window where a stale access token would otherwise still work.
 - **Audit Trail**: Logins, logouts, failed attempts, lockouts, suspensions and reuse-detections are written to an append-only **`AuthEvent`** table in Postgres for queryable history (Redis holds only live state).
 
 #### 3. 2FA & Flows
@@ -245,7 +246,7 @@ Critical actions (Password Reset, Email Change) require a short-lived **2FA Toke
 | `POST` | `/auth/logout`         | Logout current session  | -                                                     | `{ "refreshToken": "..." }`                     |
 | `POST` | `/auth/logout-all`     | Logout all sessions     | `Authorization: Bearer <token>`                       | -                                               |
 | `POST` | `/auth/refresh`        | Refresh access token    | -                                                     | `{ "refreshToken": "...", "deviceId": "uuid" }` |
-| `POST` | `/auth/2fa`            | Request 2FA OTP         | `Authorization: Bearer <token>`                       | `{ "scope": "verify-email" \| "reset-password" \| "change-email", "newEmail": "..." }` (`newEmail` required when `scope` is `"change-email"`) |
+| `POST` | `/auth/2fa`            | Request 2FA OTP         | `Authorization: Bearer <token>`                       | `{ "scope": "verify-email" \| "reset-password" \| "change-email" \| "delete-account", "newEmail": "..." }` (`newEmail` required when `scope` is `"change-email"`) |
 | `POST` | `/auth/verify-email`   | Verify Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
 | `POST` | `/auth/reset-password` | Reset Password with 2FA | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | `{ "newPassword": "new-strong-password" }`      |
 | `POST` | `/auth/change-email`   | Change Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
@@ -259,6 +260,7 @@ Every user has a mandatory 1:1 **Profile** (firstName, lastName, optional photo)
 | `GET`   | `/me`               | `Authorization: Bearer <token>` | -                                | Self info + profile + active sessions |
 | `PATCH` | `/me/profile`       | `Authorization: Bearer <token>` | `{ "firstName"?, "lastName"? }`  | Update profile fields (≥1 required) |
 | `PUT`   | `/me/profile/photo` | `Authorization: Bearer <token>` | `{ "fileId": "uuid" }`           | Link a confirmed `PROFILE_PHOTO` File as the avatar; previous photo is soft-deleted |
+| `DELETE`| `/me?token=<otp>`   | `Authorization: Bearer <token>` | -                                | Permanently delete own account (requires a `delete-account` 2FA OTP) |
 
 > **Photo flow:** `POST /files/init` (purpose `PROFILE_PHOTO`) → `PUT` to S3 → `POST /files/confirm` (creates the `File`) → `PUT /me/profile/photo` with the returned `file.id`. The avatar URL returned by `/me` is built via the public/CDN URL; switch to a presigned download URL if your bucket is private.
 
@@ -288,6 +290,7 @@ Requires `SYSTEM_ADMIN` role (or root).
 | `GET`   | `/users`              | query: `page,limit,q`    | Paginated user list with email search         |
 | `GET`   | `/users/:id`          | -                        | User detail (roles + active sessions)         |
 | `PATCH` | `/users/:id/suspend`  | `{ "suspended": true }`  | Suspend/unsuspend. Suspending revokes all refresh sessions. |
+| `DELETE`| `/users/:id`          | -                        | Permanently delete a user (hard delete; their files are soft-deleted). |
 
 > **Account protection:** `login` now rejects suspended accounts (`ACCOUNT_SUSPENDED`) and temporarily locks accounts after 5 consecutive failed attempts for 15 minutes (`ACCOUNT_LOCKED`).
 

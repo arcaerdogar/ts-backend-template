@@ -24,7 +24,12 @@ export const logoutSchema = z.object({
 
 export const twofaSchema = z
   .object({
-    scope: z.enum(["reset-password", "verify-email", "change-email"]),
+    scope: z.enum([
+      "reset-password",
+      "verify-email",
+      "change-email",
+      "delete-account",
+    ]),
     newEmail: z.email().optional(),
   })
   .refine((data) => data.scope !== "change-email" || !!data.newEmail, {

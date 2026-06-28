@@ -66,6 +66,7 @@ enum AuthEventType {
   ADMIN_REVOKE
   PASSWORD_REVOKE
   REUSE_DETECTED
+  ACCOUNT_DELETED
 
   LOGIN_FAILED
   LOGIN_BLOCKED_LOCKED
@@ -118,7 +119,8 @@ model File {
   createdAt DateTime    @default(now())
 
   userId    String?
-  user      User?       @relation(fields: [userId], references: [id])
+  // Kullanıcı hard-delete edilince dosyalar silinmez, öksüz kalır (SetNull).
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // Bu dosya bir profil fotoğrafı olarak kullanılıyorsa (1:1).
   profile   Profile?

@@ -3,6 +3,7 @@ import { HttpError } from "../common/errors.js";
 import { revokeAll, listSessions } from "./refresh.js";
 import { recordAuthEvent } from "./authEvent.js";
 import { toProfileView } from "./profile.service.js";
+import { blockUser, unblockUser } from "./blocklist.js";
 import { RoleName } from "@prisma/client";
 import argon2 from "argon2";
 
@@ -262,7 +263,12 @@ export const setUserSuspended = async (
     select: { id: true, email: true, isSuspended: true },
   });
 
-  if (suspended) await revokeAll(userId);
+  if (suspended) {
+    await revokeAll(userId);
+    await blockUser(userId); // mevcut access token'ları da anında geçersiz kıl
+  } else {
+    await unblockUser(userId);
+  }
 
   await recordAuthEvent({
     type: suspended ? "ACCOUNT_SUSPENDED" : "ACCOUNT_UNSUSPENDED",
@@ -271,6 +277,39 @@ export const setUserSuspended = async (
   });
 
   return updated;
+};
+
+/**
+ * Kullanıcıyı kalıcı olarak siler (hard delete).
+ * - Dosyalar soft-delete edilir (isActive=false; S3 nesneleri + satırlar korunur)
+ * - Tüm oturumlar iptal edilir + access token'lar blocklist ile geçersiz kılınır
+ * - ACCOUNT_DELETED audit kaydı yazılır (AuthEvent FK'sız olduğu için kalır)
+ * - User silinir; Profile + HasRole cascade ile gider, File.userId null'a düşer
+ */
+export const deleteUser = async (
+  userId: string,
+  ctx: { ip?: string | undefined; userAgent?: string | undefined } = {}
+) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw HttpError.notFound("User not found.");
+
+  await prisma.file.updateMany({
+    where: { userId },
+    data: { isActive: false },
+  });
+  await revokeAll(userId);
+  await blockUser(userId);
+
+  await recordAuthEvent({
+    type: "ACCOUNT_DELETED",
+    userId,
+    email: user.email,
+    ...ctx,
+  });
+
+  await prisma.user.delete({ where: { id: userId } });
+
+  return { id: userId, email: user.email };
 };
 
 export const updateSystemAdminRole = async (
