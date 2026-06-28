@@ -59,6 +59,10 @@ export const emailWorker = new Worker<BulkEmailJob>(
   async (job: Job<BulkEmailJob>) => {
     const { templateName, subject, destinations, from, replyTo } = job.data;
 
+    // İstek yok; korelasyon anahtarı job id. Bu child logger'ın her satırı
+    // otomatik jobId + queue taşır (HTTP'deki requestId'nin worker karşılığı).
+    const jobLog = logger.child({ jobId: job.id, queue: "bulk-mail" });
+
     const retryDestinations: typeof destinations = [];
 
     // Process all destinations in the batch concurrently
@@ -77,13 +81,13 @@ export const emailWorker = new Worker<BulkEmailJob>(
             ...(replyTo ? { replyTo } : {}),
           });
 
-          logger.info({ to: d.destination }, "Email sent");
+          jobLog.info({ to: d.destination }, "Email sent");
         } catch (error: any) {
           // Error handling logic
           const errorName = error.name || error.code || "Unknown";
           const category = getErrorCategory(errorName);
 
-          logger.error(
+          jobLog.error(
             { to: d.destination, errorName, category, err: error },
             "Email send failed",
           );
@@ -117,7 +121,7 @@ export const emailWorker = new Worker<BulkEmailJob>(
         ...(from ? { from } : {}),
         ...(replyTo ? { replyTo } : {}),
       });
-      logger.info({ count: retryDestinations.length }, "Re-queued emails");
+      jobLog.info({ count: retryDestinations.length }, "Re-queued emails");
     }
   },
   {
