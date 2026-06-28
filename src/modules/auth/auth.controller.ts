@@ -17,6 +17,7 @@ import {
 } from "./refresh.js";
 import { HttpError } from "../common/errors.js";
 import { MailSender } from "../../services/mail-service/mailSender.js";
+import { recordAuthEvent } from "./authEvent.js";
 
 // deviceId ve refreshToken'ı direkt response body'sinde göndererek çözeceğiz. Mobilde cookie yok.
 
@@ -30,6 +31,14 @@ export const register = async (req: Request, res: Response) => {
     req.headers["user-agent"],
     req.ip
   );
+  await recordAuthEvent({
+    type: "LOGIN",
+    userId: id,
+    email,
+    deviceId,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
   res.status(201).json({
     user: { id, email },
     access: accessToken,
@@ -44,7 +53,10 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   const { email, password, deviceId } = (req as any).body;
-  const user = await verifyUser(email, password);
+  const user = await verifyUser(email, password, {
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
   const accessToken = signAccessToken(user.id);
   if (deviceId) await revokeActiveTokensForDevice(user.id, deviceId);
   const session = await issueRefreshToken(
@@ -53,6 +65,14 @@ export const login = async (req: Request, res: Response) => {
     req.ip,
     deviceId
   );
+  await recordAuthEvent({
+    type: "LOGIN",
+    userId: user.id,
+    email: user.email,
+    deviceId: session.deviceId,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
 
   res.status(200).json({
     user: { userId: user.id, email: user.email },
@@ -81,13 +101,16 @@ export const refresh = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
   const { refreshToken } = (req as any).body;
-  await revokeByRaw(refreshToken);
+  const userId = await revokeByRaw(refreshToken);
+  if (userId)
+    await recordAuthEvent({ type: "LOGOUT", userId, ip: req.ip });
   res.status(200).json({ msg: "Logged out." });
 };
 
 export const logoutAll = async (req: Request, res: Response) => {
   const userId = req.user!.id;
   await revokeAll(userId);
+  await recordAuthEvent({ type: "LOGOUT_ALL", userId, ip: req.ip });
   res.status(200).json({ msg: "Logged out from all devices." });
 };
 
@@ -108,6 +131,13 @@ export const twofa = async (req: Request, res: Response) => {
   else if (scope == "verify-email")
     await mailer.sendVerificationEmail(user.email, twofaToken, "Kullanıcı");
   else throw HttpError.internal();
+  await recordAuthEvent({
+    type: "TWO_FA_ISSUED",
+    userId,
+    email: user.email,
+    ip: req.ip,
+    meta: { scope },
+  });
   res.status(200).json({ msg: `Verification email sent to ${user.email}` });
 };
 

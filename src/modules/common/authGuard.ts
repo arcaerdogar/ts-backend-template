@@ -9,6 +9,7 @@ import { prisma } from "../../config/db.js";
 import { RoleName } from "@prisma/client";
 import { env } from "../../config/env.js";
 import { claimTwoFactorToken } from "../auth/twoFactorDenylist.js";
+import { recordAuthEvent } from "../auth/authEvent.js";
 
 function readBearer(req: Request): string | undefined {
   const h = req.headers.authorization || "";
@@ -156,15 +157,43 @@ export function twoFactorAuthGuard(scope: string) {
 
     // Token'ı tüketmeden ÖNCE sahiplik ve scope doğrulanır; aksi halde yanlış
     // scope'lu geçerli bir token boşa "kullanıldı" olarak yakılırdı.
-    if (payload.sub !== req.user!.id)
+    if (payload.sub !== req.user!.id) {
+      await recordAuthEvent({
+        type: "TWO_FA_FAILED",
+        userId: req.user!.id,
+        ip: req.ip,
+        meta: { scope, reason: "wrong_user" },
+      });
       throw HttpError.unauthorized("This token wasn't issued for you.");
-    if (payload.scope !== scope)
+    }
+    if (payload.scope !== scope) {
+      await recordAuthEvent({
+        type: "TWO_FA_FAILED",
+        userId: payload.sub,
+        ip: req.ip,
+        meta: { scope, tokenScope: payload.scope, reason: "wrong_scope" },
+      });
       throw HttpError.unauthorized("This token wasn't issued for this action.");
+    }
 
     // Atomik tek-kullanımlık tüketim (Redis SET NX EX).
     const claimed = await claimTwoFactorToken(token, payload.exp);
-    if (!claimed) throw HttpError.unauthorized("Token used.");
+    if (!claimed) {
+      await recordAuthEvent({
+        type: "TWO_FA_FAILED",
+        userId: payload.sub,
+        ip: req.ip,
+        meta: { scope, reason: "token_used" },
+      });
+      throw HttpError.unauthorized("Token used.");
+    }
 
+    await recordAuthEvent({
+      type: "TWO_FA_VERIFIED",
+      userId: payload.sub,
+      ip: req.ip,
+      meta: { scope },
+    });
     next();
   };
 }

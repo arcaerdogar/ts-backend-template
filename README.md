@@ -199,11 +199,13 @@ The project implements a robust **Dual Token Architecture** (Access + Refresh) d
 
 #### 2. Session Lifecycle & Security
 
-- **Refresh Token Rotation**: Every time a Refresh Token is used, it is **revoked** and replaced by a new one. This prevents Token Re-use attacks. If an old token is used, the system detects a potential breach.
-- **Device Binding**: Every session is bound to a unique `deviceId`. A Refresh Token is only valid for the device it was issued to.
-  - _Logic_: On `login` with a specific `deviceId`, any previous active session for that device is automatically revoked (Single Active Session per Device).
-- **Database Hashing**: Refresh tokens are **hashed (Argon2)** before being stored in the database. Even if the database is leaked, attackers cannot hijack sessions.
-- **Critical Action Invalidation**: If a user changes their password, all existing sessions issued before that timestamp are instantly invalidated.
+Sessions live in **Redis** (TTL-based, AOF-durable) — not Postgres. See [ADR 0001](docs/adr/0001-session-storage-and-audit.md) for the full design.
+
+- **Refresh Token Rotation**: Every time a Refresh Token is used it is **revoked** and replaced by a new one (atomic, via a Redis Lua script). Replaying a rotated token is detected as **reuse** and revokes the whole session family for that user.
+- **Device Binding**: Every session is bound to a unique `deviceId`. A Refresh Token is only valid for the device it was issued to. On `login` with a given `deviceId`, the previous active session for that device is revoked (Single Active Session per Device).
+- **Token Hashing**: Only the **HMAC-SHA256** hash of the token is stored; the raw secret never touches storage. Knowing a `jti` without its secret is useless.
+- **Critical Action Invalidation**: Changing the password (or suspending the account) **eagerly revokes all sessions** — immediate global logout.
+- **Audit Trail**: Logins, logouts, failed attempts, lockouts, suspensions and reuse-detections are written to an append-only **`AuthEvent`** table in Postgres for queryable history (Redis holds only live state).
 
 #### 3. 2FA & Flows
 

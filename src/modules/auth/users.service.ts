@@ -1,6 +1,7 @@
 import { prisma } from "../../config/db.js";
 import { HttpError } from "../common/errors.js";
-import { revokeAll } from "./refresh.js";
+import { revokeAll, listSessions } from "./refresh.js";
+import { recordAuthEvent } from "./authEvent.js";
 import { RoleName } from "@prisma/client";
 import argon2 from "argon2";
 
@@ -22,23 +23,43 @@ export const createUser = async (emailRaw: string, passwordRaw: string) => {
   return user;
 };
 
-export async function verifyUser(emailRaw: string, password: string) {
+export async function verifyUser(
+  emailRaw: string,
+  password: string,
+  ctx: { ip?: string | undefined; userAgent?: string | undefined } = {}
+) {
   const email = emailRaw.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user)
+  if (!user) {
+    await recordAuthEvent({ type: "LOGIN_FAILED", email, ...ctx });
     throw HttpError.unauthorized(
       "Email or password is incorrect.",
       "INVALID_CREDENTIALS"
     );
+  }
 
-  if (user.isSuspended)
+  if (user.isSuspended) {
+    await recordAuthEvent({
+      type: "LOGIN_BLOCKED_SUSPENDED",
+      userId: user.id,
+      email,
+      ...ctx,
+    });
     throw HttpError.forbidden("Account suspended.", "ACCOUNT_SUSPENDED");
+  }
 
-  if (user.lockUntil && user.lockUntil > new Date())
+  if (user.lockUntil && user.lockUntil > new Date()) {
+    await recordAuthEvent({
+      type: "LOGIN_BLOCKED_LOCKED",
+      userId: user.id,
+      email,
+      ...ctx,
+    });
     throw HttpError.forbidden(
       "Account locked due to too many failed login attempts.",
       "ACCOUNT_LOCKED"
     );
+  }
 
   const ok = await argon2.verify(user.passwordHash, password);
   if (!ok) {
@@ -55,8 +76,20 @@ export async function verifyUser(emailRaw: string, password: string) {
           lockUntil: new Date(Date.now() + LOCK_DURATION_MIN * 60 * 1000),
         },
       });
+      await recordAuthEvent({
+        type: "ACCOUNT_LOCKED",
+        userId: user.id,
+        email,
+        ...ctx,
+      });
     }
 
+    await recordAuthEvent({
+      type: "LOGIN_FAILED",
+      userId: user.id,
+      email,
+      ...ctx,
+    });
     throw HttpError.unauthorized(
       "Email or password is incorrect.",
       "INVALID_CREDENTIALS"
@@ -79,22 +112,11 @@ export const getUserInfo = async (userId: string) => {
       email: true,
       lastLoginAt: true,
       emailVerified: true,
-      refreshTokens: {
-        where: { revoked: false },
-        take: 20,
-        orderBy: { createdAt: "desc" },
-        select: {
-          userAgent: true,
-          ip: true,
-          deviceId: true,
-          createdAt: true,
-          expiresAt: true,
-        },
-      },
     },
   });
   if (!user) throw HttpError.notFound("User not found.");
-  return user;
+  const sessions = await listSessions(userId);
+  return { ...user, sessions };
 };
 
 export const verifyUserEmail = async (userId: string) => {
@@ -110,9 +132,16 @@ export const resetUserPassword = async (
   newPassword: string
 ) => {
   const newRaw = await argon2.hash(newPassword);
-  const updatedUser = prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: { passwordHash: newRaw, passwordChangedAt: new Date() },
+  });
+  // Kritik eylem: parola değişince tüm oturumları anında iptal et.
+  await revokeAll(userId);
+  await recordAuthEvent({
+    type: "PASSWORD_REVOKE",
+    userId,
+    email: updatedUser.email,
   });
   return updatedUser;
 };
@@ -178,22 +207,11 @@ export const getUserByIdForAdmin = async (userId: string) => {
     select: {
       ...adminUserSelect,
       passwordChangedAt: true,
-      refreshTokens: {
-        where: { revoked: false },
-        take: 20,
-        orderBy: { createdAt: "desc" },
-        select: {
-          userAgent: true,
-          ip: true,
-          deviceId: true,
-          createdAt: true,
-          expiresAt: true,
-        },
-      },
     },
   });
   if (!user) throw HttpError.notFound("User not found.");
-  return user;
+  const sessions = await listSessions(userId);
+  return { ...user, sessions };
 };
 
 /**
@@ -214,6 +232,12 @@ export const setUserSuspended = async (
   });
 
   if (suspended) await revokeAll(userId);
+
+  await recordAuthEvent({
+    type: suspended ? "ACCOUNT_SUSPENDED" : "ACCOUNT_UNSUSPENDED",
+    userId: updated.id,
+    email: updated.email,
+  });
 
   return updated;
 };

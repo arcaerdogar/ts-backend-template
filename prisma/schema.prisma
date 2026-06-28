@@ -20,7 +20,6 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  refreshTokens         RefreshToken[]
   files                 File[]
   roles                 HasRole[]
 }
@@ -39,22 +38,44 @@ model HasRole {
   @@unique([userId, role])
 }
 
-model RefreshToken {
-  id        String   @id @default(uuid())
-  userId    String
-  jti       String   @unique
-  tokenHash String
-  userAgent String?
+// Append-only auth/güvenlik denetim kaydı. Oturum durumu Redis'tedir;
+// bu tablo yalnızca sorgulanabilir GEÇMİŞ içindir (bkz. ADR 0001).
+// Kasıtlı olarak User'a hard FK yoktur: kullanıcı silinse de geçmiş kalır.
+enum AuthEventType {
+  LOGIN
+  LOGOUT
+  LOGOUT_ALL
+  ADMIN_REVOKE
+  PASSWORD_REVOKE
+  REUSE_DETECTED
+
+  LOGIN_FAILED
+  LOGIN_BLOCKED_LOCKED
+  LOGIN_BLOCKED_SUSPENDED
+  ACCOUNT_LOCKED
+  ACCOUNT_SUSPENDED
+  ACCOUNT_UNSUSPENDED
+
+  TWO_FA_ISSUED
+  TWO_FA_VERIFIED
+  TWO_FA_FAILED
+}
+
+model AuthEvent {
+  id        String        @id @default(uuid())
+  userId    String?
+  email     String?
+  type      AuthEventType
+  jti       String?
+  deviceId  String?
   ip        String?
-  deviceId  String
-  revoked   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  expiresAt DateTime
+  userAgent String?
+  meta      Json?
+  createdAt DateTime      @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, revoked, deviceId])
-  @@index([expiresAt])
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+  @@index([email, createdAt])
 }
 
 enum FilePurpose {
