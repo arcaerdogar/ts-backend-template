@@ -59,3 +59,72 @@ describe("refresh token rotation (Redis)", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("refresh / logout edge cases", () => {
+  it("rejects a request missing deviceId (validation)", async () => {
+    const res = await request
+      .post("/auth/refresh")
+      .send({ refreshToken: "something" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a deviceId that is not a uuid (validation)", async () => {
+    const res = await request
+      .post("/auth/refresh")
+      .send({ refreshToken: "a.b", deviceId: "not-a-uuid" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a malformed token (no jti.secret)", async () => {
+    const res = await request.post("/auth/refresh").send({
+      refreshToken: "garbage-no-dot",
+      deviceId: randomUUID(),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an unknown jti", async () => {
+    const res = await request.post("/auth/refresh").send({
+      refreshToken: `${randomUUID()}.${randomUUID()}`,
+      deviceId: randomUUID(),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("logout is idempotent for an unknown token (still 200)", async () => {
+    const res = await request
+      .post("/auth/logout")
+      .send({ refreshToken: `${randomUUID()}.secret` });
+    expect(res.status).toBe(200);
+  });
+
+  it("logout requires a refreshToken in the body", async () => {
+    const res = await request.post("/auth/logout").send({});
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /auth/logout-all", () => {
+  it("revokes every active session for the user", async () => {
+    await createUser("la@test.local", PASSWORD);
+    const s1 = await login("la@test.local");
+    const s2 = await login("la@test.local");
+    const accessRes = await request
+      .post("/auth/login")
+      .send({ email: "la@test.local", password: PASSWORD });
+    const access = accessRes.body.access;
+
+    const res = await request
+      .post("/auth/logout-all")
+      .set("Authorization", `Bearer ${access}`);
+    expect(res.status).toBe(200);
+
+    expect((await refresh(s1.refreshToken, s1.deviceId)).status).toBe(401);
+    expect((await refresh(s2.refreshToken, s2.deviceId)).status).toBe(401);
+  });
+
+  it("requires authentication", async () => {
+    const res = await request.post("/auth/logout-all");
+    expect(res.status).toBe(401);
+  });
+});

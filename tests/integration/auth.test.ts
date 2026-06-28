@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { randomUUID } from "node:crypto";
 import { request, createUser } from "../helpers/auth.js";
 
 const PASSWORD = "super-secret-pw";
@@ -98,5 +99,78 @@ describe("account protection (#8)", () => {
         .send({ email: "reset@test.local", password: "wrong" });
       expect(res.body.error).toBe("INVALID_CREDENTIALS");
     }
+  });
+});
+
+describe("register validation & edge cases", () => {
+  const base = { password: PASSWORD, firstName: "A", lastName: "B" };
+
+  it("rejects a duplicate email with 409", async () => {
+    await createUser("dup@test.local", PASSWORD);
+    const res = await request
+      .post("/auth/register")
+      .send({ ...base, email: "dup@test.local" });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("EMAIL_IN_USE");
+  });
+
+  it("treats email case-insensitively (duplicate)", async () => {
+    await createUser("case@test.local", PASSWORD);
+    const res = await request
+      .post("/auth/register")
+      .send({ ...base, email: "CASE@Test.Local" });
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects an invalid email format", async () => {
+    const res = await request
+      .post("/auth/register")
+      .send({ ...base, email: "not-an-email" });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a password shorter than 8 chars", async () => {
+    const res = await request
+      .post("/auth/register")
+      .send({ ...base, email: "short@test.local", password: "short" });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("login edge cases", () => {
+  it("returns 401 for a non-existent email", async () => {
+    const res = await request
+      .post("/auth/login")
+      .send({ email: "ghost@test.local", password: PASSWORD });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("INVALID_CREDENTIALS");
+  });
+
+  it("logs in case-insensitively", async () => {
+    await createUser("ci@test.local", PASSWORD);
+    const res = await request
+      .post("/auth/login")
+      .send({ email: "CI@TEST.LOCAL", password: PASSWORD });
+    expect(res.status).toBe(200);
+  });
+
+  it("enforces a single active session per device on login", async () => {
+    await createUser("dev1@test.local", PASSWORD);
+    const deviceId = randomUUID();
+
+    const first = await request
+      .post("/auth/login")
+      .send({ email: "dev1@test.local", password: PASSWORD, deviceId });
+    const firstToken = first.body.session.refreshToken;
+
+    // Aynı deviceId ile tekrar login -> önceki oturum iptal edilmeli
+    await request
+      .post("/auth/login")
+      .send({ email: "dev1@test.local", password: PASSWORD, deviceId });
+
+    const res = await request
+      .post("/auth/refresh")
+      .send({ refreshToken: firstToken, deviceId });
+    expect(res.status).toBe(401);
   });
 });

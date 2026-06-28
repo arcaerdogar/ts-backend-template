@@ -89,4 +89,52 @@ describe("profile (#2)", () => {
       .send({ fileId: file.id });
     expect(res.status).toBe(403);
   });
+
+  it("rejects linking a file whose purpose is not PROFILE_PHOTO", async () => {
+    const user = await createUser("p6@test.local", PASSWORD);
+    const access = await loginAndGetAccess("p6@test.local", PASSWORD);
+    const doc = await prisma.file.create({
+      data: {
+        key: "documents/2026/06/cv.pdf",
+        bucket: "test-bucket",
+        name: "cv",
+        mimeType: "application/pdf",
+        size: 10,
+        checksum: "c",
+        purpose: "DOCUMENT",
+        userId: user.id,
+        isActive: true,
+      },
+    });
+    const res = await request
+      .put("/me/profile/photo")
+      .set("Authorization", `Bearer ${access}`)
+      .send({ fileId: doc.id });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 when linking a non-existent file", async () => {
+    await createUser("p7@test.local", PASSWORD);
+    const access = await loginAndGetAccess("p7@test.local", PASSWORD);
+    const res = await request
+      .put("/me/profile/photo")
+      .set("Authorization", `Bearer ${access}`)
+      .send({ fileId: "00000000-0000-0000-0000-000000000000" });
+    expect(res.status).toBe(404);
+  });
+
+  it("requires authentication for /me", async () => {
+    const res = await request.get("/me");
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects an empty profile update (no fields)", async () => {
+    await createUser("p8@test.local", PASSWORD);
+    const access = await loginAndGetAccess("p8@test.local", PASSWORD);
+    const res = await request
+      .patch("/me/profile")
+      .set("Authorization", `Bearer ${access}`)
+      .send({});
+    expect(res.status).toBe(400);
+  });
 });
