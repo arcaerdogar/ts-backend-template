@@ -1,5 +1,7 @@
 import type { AuthEventType, Prisma } from "@prisma/client";
 import { prisma } from "../../config/db.js";
+import { logger } from "../../config/logger.js";
+import { getRequestId } from "../common/requestContext.js";
 
 export type AuthEventInput = {
   type: AuthEventType;
@@ -20,10 +22,17 @@ export type AuthEventInput = {
  * Best-effort'tur: denetim yazımı asla auth akışını bozmaz (hata yutulur).
  */
 export async function recordAuthEvent(e: AuthEventInput): Promise<void> {
-  // #21 geldiğinde burası pino + request/correlation ID ile değişecek.
-  console.log(
-    JSON.stringify({ kind: "auth_event", ts: new Date().toISOString(), ...e })
-  );
+  const requestId = getRequestId();
+
+  // Operasyonel log (aynı requestId ile diğer log satırlarına bağlanır).
+  logger.info({ kind: "auth_event", requestId, ...e }, "auth_event");
+
+  // requestId'yi meta'ya da koy → audit kaydı ↔ loglar çapraz bağlanır.
+  const baseMeta =
+    e.meta && typeof e.meta === "object" && !Array.isArray(e.meta)
+      ? (e.meta as Record<string, unknown>)
+      : {};
+  const meta = { ...baseMeta, ...(requestId ? { requestId } : {}) };
 
   try {
     await prisma.authEvent.create({
@@ -35,10 +44,10 @@ export async function recordAuthEvent(e: AuthEventInput): Promise<void> {
         deviceId: e.deviceId ?? null,
         ip: e.ip ?? null,
         userAgent: e.userAgent ?? null,
-        ...(e.meta !== undefined ? { meta: e.meta } : {}),
+        ...(Object.keys(meta).length ? { meta: meta as Prisma.InputJsonValue } : {}),
       },
     });
   } catch (err) {
-    console.error("Failed to persist auth event:", err);
+    logger.error({ err, requestId }, "Failed to persist auth event");
   }
 }

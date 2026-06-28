@@ -8,6 +8,10 @@ import {
   notFoundHandler,
   globalErrorHandler,
 } from "./modules/common/errorHandlers.js";
+import {
+  httpLogger,
+  requestContextMiddleware,
+} from "./modules/common/httpLogger.js";
 import authRouter from "./modules/auth/auth.routes.js";
 import meRouter from "./modules/auth/meRoutes/me.routes.js";
 import fileRouter from "./modules/files/file.routes.js";
@@ -17,6 +21,8 @@ import userAdminRouter from "./modules/auth/userRoutes/user.routes.js";
 const server = express();
 
 server.use(helmet());
+server.use(httpLogger);
+server.use(requestContextMiddleware);
 server.use(cors({ origin: env.allowedOrigins, credentials: true }));
 
 server.use(express.json({ limit: "5mb" }));

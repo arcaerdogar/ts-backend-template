@@ -41,6 +41,9 @@ Copy `env.example` to `.env` and fill in the values:
 ```env
 PORT=3000
 
+# Logging: debug | info | warn | error | silent (default info)
+LOG_LEVEL=info
+
 # CORS
 ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173"
 
@@ -112,6 +115,16 @@ npm run test:db:down
 - **Config**: `vitest.config.ts`, env in `.env.test` (fake AWS/JWT secrets).
 - **Layout**: `tests/unit/` (pure functions) and `tests/integration/` (full `/auth`, `/root`, `/users` flows incl. account suspension/locking from issue #8).
 - The DB is truncated and Redis flushed before every test (`tests/setup.ts`), so tests are isolated and order-independent.
+
+---
+
+## 📝 Logging & Observability
+
+Structured JSON logging via **pino** + **pino-http**. Every request gets a **correlation id** (`X-Request-Id` — reused if the client sends one, generated otherwise, echoed back in the response header). The id is carried through all layers via `AsyncLocalStorage`, so service-level logs and `AuthEvent` rows (`meta.requestId`) all share it — filter by one id to trace a whole request.
+
+- **Output**: stdout only (12-factor). Dev uses `pino-pretty`; prod emits raw JSON. In Docker the configured `json-file` driver captures + rotates it. Ship stdout to an aggregator in production — no code change.
+- **Levels**: `LOG_LEVEL` env (`debug`…`error`, or `silent` in tests).
+- This is **operational** logging; durable, queryable login/security history lives in the `AuthEvent` table (see [ADR 0001](docs/adr/0001-session-storage-and-audit.md)).
 
 ---
 

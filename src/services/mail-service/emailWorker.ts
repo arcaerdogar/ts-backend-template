@@ -4,6 +4,7 @@ import { Redis as IORedis } from "ioredis";
 import { type BulkEmailJob, addBulkEmailJob } from "./bulkmailService.js";
 import { sendEmail } from "./aws.ses.js";
 import { renderTemplate } from "./templates/template.loader.js";
+import { logger } from "../../config/logger.js";
 
 const connection = new IORedis(env.redis.url, {
   maxRetriesPerRequest: null,
@@ -73,31 +74,25 @@ export const emailWorker = new Worker<BulkEmailJob>(
             ...(replyTo ? { replyTo } : {}),
           });
 
-          console.log(`Email sent to ${d.destination}`);
+          logger.info({ to: d.destination }, "Email sent");
         } catch (error: any) {
-          console.error(`Failed to send to ${d.destination}:`, error);
-
           // Error handling logic
           const errorName = error.name || error.code || "Unknown";
           const category = getErrorCategory(errorName);
 
+          logger.error(
+            { to: d.destination, errorName, category, err: error },
+            "Email send failed",
+          );
+
           if (category === "RETRYABLE") {
             retryDestinations.push(d);
           } else if (category === "BLACKLIST") {
-            // Log blacklist
-            console.error(
-              `Email to ${d.destination} failed with BLACKLIST error: ${errorName}`,
-            );
+            // already logged above with category
           } else if (category === "FATAL") {
-            // Log fatal
-            console.error(
-              `Email to ${d.destination} failed with FATAL error: ${errorName}`,
-            );
+            // already logged above with category
           } else {
             // Unknown -> Alert Admin
-            console.error(
-              `Email to ${d.destination} failed with UNKNOWN error: ${errorName}`,
-            );
 
             if (env.admin?.email) {
               await sendEmail({
@@ -119,7 +114,7 @@ export const emailWorker = new Worker<BulkEmailJob>(
         ...(from ? { from } : {}),
         ...(replyTo ? { replyTo } : {}),
       });
-      console.log(`Re-queued ${retryDestinations.length} emails.`);
+      logger.info({ count: retryDestinations.length }, "Re-queued emails");
     }
   },
   {
@@ -133,9 +128,9 @@ export const emailWorker = new Worker<BulkEmailJob>(
 );
 
 emailWorker.on("completed", (job) => {
-  console.log(`Job ${job.id} completed successfully`);
+  logger.info({ jobId: job.id }, "Job completed");
 });
 
 emailWorker.on("failed", (job, err) => {
-  console.error(`Job ${job?.id} failed with error ${err.message}`);
+  logger.error({ jobId: job?.id, err }, "Job failed");
 });
