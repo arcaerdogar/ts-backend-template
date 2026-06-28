@@ -5,12 +5,16 @@ const PASSWORD = "super-secret-pw";
 
 describe("POST /auth/register", () => {
   it("creates a user and returns access + refresh session", async () => {
-    const res = await request
-      .post("/auth/register")
-      .send({ email: "new@test.local", password: PASSWORD });
+    const res = await request.post("/auth/register").send({
+      email: "new@test.local",
+      password: PASSWORD,
+      firstName: "Ada",
+      lastName: "Lovelace",
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.user.email).toBe("new@test.local");
+    expect(res.body.profile).toEqual({ firstName: "Ada", lastName: "Lovelace" });
     expect(res.body.access).toBeTruthy();
     expect(res.body.session.refreshToken).toBeTruthy();
     expect(res.body.session.deviceId).toBeTruthy();

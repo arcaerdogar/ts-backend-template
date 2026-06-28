@@ -22,9 +22,15 @@ import { recordAuthEvent } from "./authEvent.js";
 // deviceId ve refreshToken'ı direkt response body'sinde göndererek çözeceğiz. Mobilde cookie yok.
 
 export const register = async (req: Request, res: Response) => {
-  const emailRaw = (req as any).body.email;
-  const passwordRaw = (req as any).body.password;
-  const { id, email } = await createUser(emailRaw, passwordRaw);
+  const { email: emailRaw, password: passwordRaw, firstName, lastName } = (
+    req as any
+  ).body;
+  const { id, email } = await createUser(
+    emailRaw,
+    passwordRaw,
+    firstName,
+    lastName
+  );
   const accessToken = signAccessToken(id);
   const { raw, deviceId } = await issueRefreshToken(
     id,
@@ -41,6 +47,7 @@ export const register = async (req: Request, res: Response) => {
   });
   res.status(201).json({
     user: { id, email },
+    profile: { firstName, lastName },
     access: accessToken,
     session: {
       refreshToken: raw,

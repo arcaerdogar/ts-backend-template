@@ -2,6 +2,7 @@ import { prisma } from "../../config/db.js";
 import { HttpError } from "../common/errors.js";
 import { revokeAll, listSessions } from "./refresh.js";
 import { recordAuthEvent } from "./authEvent.js";
+import { toProfileView } from "./profile.service.js";
 import { RoleName } from "@prisma/client";
 import argon2 from "argon2";
 
@@ -10,7 +11,12 @@ const MAX_FAILED_LOGINS = 5;
 /** Kilit süresi (dakika). */
 const LOCK_DURATION_MIN = 15;
 
-export const createUser = async (emailRaw: string, passwordRaw: string) => {
+export const createUser = async (
+  emailRaw: string,
+  passwordRaw: string,
+  firstName: string,
+  lastName: string
+) => {
   const email = emailRaw.trim().toLowerCase();
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists)
@@ -18,7 +24,16 @@ export const createUser = async (emailRaw: string, passwordRaw: string) => {
 
   const passwordHash = await argon2.hash(passwordRaw);
 
-  const user = await prisma.user.create({ data: { email, passwordHash } });
+  // Nested create = User + Profile tek atomik işlemde -> profilsiz user oluşmaz.
+  const user = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      profile: {
+        create: { firstName: firstName.trim(), lastName: lastName.trim() },
+      },
+    },
+  });
 
   return user;
 };
@@ -112,11 +127,19 @@ export const getUserInfo = async (userId: string) => {
       email: true,
       lastLoginAt: true,
       emailVerified: true,
+      profile: {
+        select: {
+          firstName: true,
+          lastName: true,
+          photoFile: { select: { key: true } },
+        },
+      },
     },
   });
   if (!user) throw HttpError.notFound("User not found.");
+  const { profile, ...rest } = user;
   const sessions = await listSessions(userId);
-  return { ...user, sessions };
+  return { ...rest, profile: toProfileView(profile), sessions };
 };
 
 export const verifyUserEmail = async (userId: string) => {
@@ -207,11 +230,19 @@ export const getUserByIdForAdmin = async (userId: string) => {
     select: {
       ...adminUserSelect,
       passwordChangedAt: true,
+      profile: {
+        select: {
+          firstName: true,
+          lastName: true,
+          photoFile: { select: { key: true } },
+        },
+      },
     },
   });
   if (!user) throw HttpError.notFound("User not found.");
+  const { profile, ...rest } = user;
   const sessions = await listSessions(userId);
-  return { ...user, sessions };
+  return { ...rest, profile: toProfileView(profile), sessions };
 };
 
 /**

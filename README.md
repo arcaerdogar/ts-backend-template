@@ -238,11 +238,9 @@ Critical actions (Password Reset, Email Change) require a short-lived **2FA Toke
 
 ### 🔐 Auth Module
 
-### 🔐 Auth Module
-
 | Method | Endpoint               | Description             | Headers                                               | Payload                                         |
 | :----- | :--------------------- | :---------------------- | :---------------------------------------------------- | :---------------------------------------------- | ------------------- |
-| `POST` | `/auth/register`       | Register new user       | -                                                     | `{ "email": "...", "password": "..." }`         |
+| `POST` | `/auth/register`       | Register new user       | -                                                     | `{ "email", "password", "firstName", "lastName" }` (profile is created in the same transaction) |
 | `POST` | `/auth/login`          | Login user              | -                                                     | `{ "email": "...", "password": "..." }`         |
 | `POST` | `/auth/logout`         | Logout current session  | -                                                     | `{ "refreshToken": "..." }`                     |
 | `POST` | `/auth/logout-all`     | Logout all sessions     | `Authorization: Bearer <token>`                       | -                                               |
@@ -251,6 +249,18 @@ Critical actions (Password Reset, Email Change) require a short-lived **2FA Toke
 | `POST` | `/auth/verify-email`   | Verify Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
 | `POST` | `/auth/reset-password` | Reset Password with 2FA | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | `{ "newPassword": "new-strong-password" }`      |
 | `POST` | `/auth/change-email`   | Change Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
+
+### 👤 Me / Profile Module
+
+Every user has a mandatory 1:1 **Profile** (firstName, lastName, optional photo), created atomically at register. The profile photo is not a raw URL — it references a `File` entity (see Upload Module), so the standard presigned-upload flow + DB abstraction applies.
+
+| Method  | Endpoint            | Headers                         | Payload                          | Description |
+| :------ | :------------------ | :------------------------------ | :------------------------------- | :---------- |
+| `GET`   | `/me`               | `Authorization: Bearer <token>` | -                                | Self info + profile + active sessions |
+| `PATCH` | `/me/profile`       | `Authorization: Bearer <token>` | `{ "firstName"?, "lastName"? }`  | Update profile fields (≥1 required) |
+| `PUT`   | `/me/profile/photo` | `Authorization: Bearer <token>` | `{ "fileId": "uuid" }`           | Link a confirmed `PROFILE_PHOTO` File as the avatar; previous photo is soft-deleted |
+
+> **Photo flow:** `POST /files/init` (purpose `PROFILE_PHOTO`) → `PUT` to S3 → `POST /files/confirm` (creates the `File`) → `PUT /me/profile/photo` with the returned `file.id`. The avatar URL returned by `/me` is built via the public/CDN URL; switch to a presigned download URL if your bucket is private.
 
 ### 👑 Roles & Admin
 

@@ -9,15 +9,27 @@ export const request = supertest(server);
 export async function createUser(
   email: string,
   password: string,
-  opts: { suspended?: boolean; emailVerified?: boolean } = {}
+  opts: {
+    suspended?: boolean;
+    emailVerified?: boolean;
+    firstName?: string;
+    lastName?: string;
+  } = {}
 ) {
   const passwordHash = await argon2.hash(password);
+  // Her user'ın bir profili olmak zorunda -> nested create.
   return prisma.user.create({
     data: {
       email: email.trim().toLowerCase(),
       passwordHash,
       isSuspended: opts.suspended ?? false,
       emailVerified: opts.emailVerified ?? false,
+      profile: {
+        create: {
+          firstName: opts.firstName ?? "Test",
+          lastName: opts.lastName ?? "User",
+        },
+      },
     },
   });
 }

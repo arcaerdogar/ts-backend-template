@@ -22,6 +22,24 @@ model User {
 
   files                 File[]
   roles                 HasRole[]
+  profile               Profile?
+}
+
+// Her kullanıcı için zorunlu 1:1 profil. "Bir profil tek bir user'a ait + user
+// başına tek profil" DB tarafından garanti edilir (userId UNIQUE + NOT NULL +
+// FK). "Her user'ın profili olmalı" tarafı register'da User+Profile'ın tek
+// transaction'da (nested create) oluşturulmasıyla sağlanır.
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  firstName   String
+  lastName    String
+  photoFileId String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photoFile File? @relation(fields: [photoFileId], references: [id])
 }
 
 enum RoleName {
@@ -101,4 +119,7 @@ model File {
 
   userId    String?
   user      User?       @relation(fields: [userId], references: [id])
+
+  // Bu dosya bir profil fotoğrafı olarak kullanılıyorsa (1:1).
+  profile   Profile?
 }
