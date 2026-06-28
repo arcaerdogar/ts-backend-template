@@ -2,6 +2,9 @@
 # farklı portlarda çalışır ve veriyi tmpfs'te tutar (kalıcı değil, hızlı).
 #   npm run test:db:up    -> ayağa kaldır (healthcheck'leri bekler)
 #   npm run test:db:down  -> kapat ve volume'leri temizle
+# Ana compose'dan ayrı bir proje adı: "orphan containers" uyarısını önler.
+name: backend-template-test
+
 services:
   test-postgres:
     image: postgres:16-alpine
