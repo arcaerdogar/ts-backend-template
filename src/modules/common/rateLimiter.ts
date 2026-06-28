@@ -1,12 +1,7 @@
 import { rateLimit } from "express-rate-limit";
 import { RedisStore, type SendCommandFn } from "rate-limit-redis";
-import { Redis as IORedis } from "ioredis";
 import { type Request, type Response } from "express";
-import { env } from "../../config/env.js";
-
-const redisClient = new IORedis(env.redis.url, {
-  maxRetriesPerRequest: null,
-});
+import { redis as redisClient } from "../../config/redis.js";
 
 // `ioredis`'s `call` signature is overloaded and doesn't line up exactly with
 // `rate-limit-redis`'s expected `SendCommandFn`, so we cast it once here.

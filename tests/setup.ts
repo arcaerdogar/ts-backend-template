@@ -17,13 +17,7 @@ const redis = new IORedis(process.env.REDIS_URL!, {
   maxRetriesPerRequest: null,
 });
 
-const TABLES = [
-  '"HasRole"',
-  '"RefreshToken"',
-  '"ExpiredTwoFactorToken"',
-  '"File"',
-  '"User"',
-];
+const TABLES = ['"HasRole"', '"RefreshToken"', '"File"', '"User"'];
 
 beforeEach(async () => {
   sesMock.reset();

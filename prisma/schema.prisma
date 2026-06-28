@@ -21,7 +21,6 @@ model User {
   updatedAt         DateTime  @updatedAt
 
   refreshTokens         RefreshToken[]
-  expiredTwoFactorTokens ExpiredTwoFactorToken[]
   files                 File[]
   roles                 HasRole[]
 }
@@ -55,19 +54,6 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, revoked, deviceId])
-  @@index([expiresAt])
-}
-
-model ExpiredTwoFactorToken {
-  id        String   @id @default(uuid())
-  userId    String
-  tokenHash String   @unique
-  usedAt    DateTime @default(now())
-  expiresAt DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, usedAt])
   @@index([expiresAt])
 }
 

@@ -5,10 +5,10 @@ import {
   verifyRootToken,
 } from "../auth/jwt.js";
 import { HttpError } from "./errors.js";
-import { createHash } from "crypto";
 import { prisma } from "../../config/db.js";
 import { RoleName } from "@prisma/client";
 import { env } from "../../config/env.js";
+import { claimTwoFactorToken } from "../auth/twoFactorDenylist.js";
 
 function readBearer(req: Request): string | undefined {
   const h = req.headers.authorization || "";
@@ -145,38 +145,26 @@ export function authGuard(req: Request, res: Response, next: NextFunction) {
 export function twoFactorAuthGuard(scope: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const token = req.query.token as string;
+    if (!token) throw HttpError.unauthorized("No 2FA token provided.");
+
+    let payload;
     try {
-      if (!token) throw HttpError.unauthorized("No 2FA token provided.");
-      const payload = verify2faToken(token);
-      const tokenHash = createHash("sha256").update(token).digest("hex");
-      const existingToken = await prisma.expiredTwoFactorToken.findUnique({
-        where: { tokenHash },
-      });
-
-      if (existingToken) {
-        throw HttpError.unauthorized("Token used.");
-      }
-
-      await prisma.expiredTwoFactorToken.create({
-        data: {
-          userId: payload.sub,
-          tokenHash,
-          usedAt: new Date(),
-          expiresAt: new Date(payload.exp * 1000),
-        },
-      });
-      const userId = req.user!.id;
-      if (payload.sub !== userId) {
-        throw HttpError.unauthorized("This token wasn't issued for you.");
-      }
-      if (payload.scope !== scope)
-        throw HttpError.unauthorized(
-          "This token wasn't issued for this action."
-        );
-
-      next();
-    } catch (err) {
+      payload = verify2faToken(token);
+    } catch {
       throw HttpError.unauthorized("Two factor authentication failed.");
     }
+
+    // Token'ı tüketmeden ÖNCE sahiplik ve scope doğrulanır; aksi halde yanlış
+    // scope'lu geçerli bir token boşa "kullanıldı" olarak yakılırdı.
+    if (payload.sub !== req.user!.id)
+      throw HttpError.unauthorized("This token wasn't issued for you.");
+    if (payload.scope !== scope)
+      throw HttpError.unauthorized("This token wasn't issued for this action.");
+
+    // Atomik tek-kullanımlık tüketim (Redis SET NX EX).
+    const claimed = await claimTwoFactorToken(token, payload.exp);
+    if (!claimed) throw HttpError.unauthorized("Token used.");
+
+    next();
   };
 }
