@@ -1,10 +1,14 @@
 import { Queue } from "bullmq";
 import { env } from "../../config/env.js";
 import { Redis } from "ioredis";
+import { logger } from "../../config/logger.js";
 
 const connection = new Redis(env.redis.url, {
   maxRetriesPerRequest: null,
 });
+connection.on("error", (err) =>
+  logger.error({ err }, "Redis (bulk mail queue) connection error"),
+);
 
 export const MAX_BULK_SIZE = 14;
 

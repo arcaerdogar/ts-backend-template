@@ -2,6 +2,7 @@ import { rateLimit } from "express-rate-limit";
 import { RedisStore, type SendCommandFn } from "rate-limit-redis";
 import { type Request, type Response } from "express";
 import { redis as redisClient } from "../../config/redis.js";
+import { logger } from "../../config/logger.js";
 
 // `ioredis`'s `call` signature is overloaded and doesn't line up exactly with
 // `rate-limit-redis`'s expected `SendCommandFn`, so we cast it once here.
@@ -9,6 +10,10 @@ const sendCommand: SendCommandFn = (...args: string[]) =>
   redisClient.call(...(args as [string, ...string[]])) as ReturnType<SendCommandFn>;
 
 function rateLimitedHandler(req: Request, res: Response) {
+  logger.warn(
+    { ip: req.ip, path: req.path, method: req.method },
+    "Rate limit exceeded"
+  );
   res.status(429).json({
     error: "RATE_LIMITED",
     message: "Too many requests, please try again later.",

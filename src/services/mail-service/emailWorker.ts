@@ -9,6 +9,9 @@ import { logger } from "../../config/logger.js";
 const connection = new IORedis(env.redis.url, {
   maxRetriesPerRequest: null,
 });
+connection.on("error", (err) =>
+  logger.error({ err }, "Redis (email worker) connection error"),
+);
 
 const SES_ERROR_CATEGORIES = {
   // Yeniden denenebilir (Requeue)
