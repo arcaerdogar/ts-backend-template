@@ -4,12 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "prisma:mig": "prisma migrate dev",
-    "prisma:gen": "prisma generate"
+    "prisma:gen": "prisma generate",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:db:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:db:down": "docker compose -f docker-compose.test.yml down -v"
   },
   "keywords": [],
   "author": "",
@@ -20,11 +23,15 @@
     "@types/cors": "^2.8.19",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.7.2",
+    "@types/supertest": "^7.2.0",
     "@types/uuid": "^10.0.0",
+    "aws-sdk-client-mock": "^4.1.0",
     "prisma": "^6.17.1",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.9"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.893.0",

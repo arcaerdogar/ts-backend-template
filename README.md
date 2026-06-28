@@ -88,6 +88,28 @@ npm run dev
 
 ---
 
+## 🧪 Testing
+
+Tests run with **Vitest** (unit) + **Supertest** (HTTP integration) against **isolated Docker containers** — a throwaway Postgres + Redis defined in `docker-compose.test.yml`. Your real database is never touched. AWS SES is mocked with `aws-sdk-client-mock`, so no emails are sent.
+
+```bash
+# 1. Spin up the test Postgres (:5433) + Redis (:6381) and wait for health
+npm run test:db:up
+
+# 2. Run the suite (globalSetup pushes the schema to the test DB)
+npm test           # single run
+npm run test:watch # watch mode
+
+# 3. Tear down + wipe volumes when done
+npm run test:db:down
+```
+
+- **Config**: `vitest.config.ts`, env in `.env.test` (fake AWS/JWT secrets).
+- **Layout**: `tests/unit/` (pure functions) and `tests/integration/` (full `/auth`, `/root`, `/users` flows incl. account suspension/locking from issue #8).
+- The DB is truncated and Redis flushed before every test (`tests/setup.ts`), so tests are isolated and order-independent.
+
+---
+
 ## 🏗️ Project Structure and Architecture
 
 ### Directory Structure
