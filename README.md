@@ -72,6 +72,11 @@ CDN_DOMAIN="" # Optional (e.g., cdn.myapp.com)
 
 # SES
 SES_SENDER_EMAIL="noreply@myapp.com"
+
+# Redis (rate limiting, 2FA denylist, sessions, BullMQ)
+# Local dev: docker-compose ships a redis on localhost:6379.
+# Inside docker-compose the app auto-connects to redis://redis:6379.
+REDIS_URL="redis://localhost:6379"
 ```
 
 ### 3. Database Migration

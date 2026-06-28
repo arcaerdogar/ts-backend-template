@@ -8,6 +8,12 @@ services:
     mem_reservation: 128m
     restart: unless-stopped
     env_file: .env
+    environment:
+      # Konteyner içinden compose ağındaki redis servisine bağlan (.env'i ezer).
+      REDIS_URL: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
     ports:
       - "127.0.0.1:4009:3000"
     logging:
@@ -15,3 +21,24 @@ services:
       options:
         "max-size": "10m"
         "max-file": "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: ts-backend-template-redis
+    restart: unless-stopped
+    # Oturumlar Redis'te yaşıyor: AOF ile kalıcılık + canlı oturumları asla
+    # evict etmeyen politika (bkz. ADR 0001).
+    command: redis-server --appendonly yes --appendfsync everysec --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    ports:
+      # Host'tan (npm run dev) erişim için. Çakışırsa sol tarafı değiştir.
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  redis-data:
