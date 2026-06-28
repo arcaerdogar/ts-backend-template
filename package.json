@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-mail-templates.mjs",
     "start": "node dist/index.js",
     "prisma:mig": "prisma migrate dev",
     "prisma:gen": "prisma generate",
