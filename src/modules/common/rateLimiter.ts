@@ -67,3 +67,20 @@ export const twoFaLimiter = rateLimit({
     sendCommand,
   }),
 });
+
+/**
+ * Protects the OAuth flow (start / callback / exchange) from abuse and replay
+ * spam. Applied to every /auth/oauth route.
+ */
+export const oauthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "RATE_LIMITED", message: "Too many requests, please try again later." },
+  handler: rateLimitedHandler,
+  store: new RedisStore({
+    prefix: "rl:oauth:",
+    sendCommand,
+  }),
+});

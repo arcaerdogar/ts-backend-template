@@ -10,7 +10,8 @@ datasource db {
 model User {
   id                String    @id @default(uuid())
   email             String    @unique
-  passwordHash      String
+  // Sosyal girişle (Google) oluşan kullanıcının şifresi olmaz -> nullable.
+  passwordHash      String?
   emailVerified     Boolean   @default(false)
   isSuspended       Boolean   @default(false)
   failedLoginCount  Int       @default(0)
@@ -23,6 +24,30 @@ model User {
   files                 File[]
   roles                 HasRole[]
   profile               Profile?
+  oauthAccounts         OAuthAccount[]
+}
+
+enum OAuthProvider {
+  GOOGLE
+  GITHUB
+  APPLE
+}
+
+// Bir kullanıcının bir OAuth sağlayıcısındaki kimliği. Eşleştirme anahtarı her
+// zaman providerAccountId'dir (= id_token.sub), email DEĞİL. Sağlayıcının
+// access/refresh token'ları KASITLI olarak saklanmaz (bkz. güvenlik notları).
+model OAuthAccount {
+  id                String        @id @default(uuid())
+  userId            String
+  provider          OAuthProvider
+  providerAccountId String // = id_token.sub, EMAIL DEĞİL
+  email             String? // bilgi amaçlı, eşleştirme anahtarı değil
+  createdAt         DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 // Her kullanıcı için zorunlu 1:1 profil. "Bir profil tek bir user'a ait + user
@@ -78,6 +103,11 @@ enum AuthEventType {
   TWO_FA_ISSUED
   TWO_FA_VERIFIED
   TWO_FA_FAILED
+
+  OAUTH_LOGIN
+  OAUTH_REGISTER
+  OAUTH_LINKED
+  OAUTH_STATE_MISMATCH
 }
 
 model AuthEvent {

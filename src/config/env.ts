@@ -58,4 +58,28 @@ export const env = {
     email: req("ADMIN_EMAIL"),
     password: req("ADMIN_PASSWORD"),
   },
+
+  // OAuth OPSIYONEL: bu bir template; OAuth kullanmayan projeler bu env'ler
+  // olmadan da boot edebilmeli. Bu yüzden req() DEĞİL, process.env ile okunur.
+  oauth: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirectUri: process.env.GOOGLE_REDIRECT_URI,
+    },
+    // Callback sonrası frontend'e yönlendirme hedefi (exchange kodu bununla teslim edilir).
+    successRedirect: process.env.OAUTH_SUCCESS_REDIRECT,
+  },
 };
+
+/**
+ * Google OAuth "aktif" sayılır ancak client id + secret + redirect uri'nin
+ * ÜÇÜ de doluysa. Aktif değilse oauth rotaları hiç mount edilmez (bkz.
+ * server.ts) -> yarım yapılandırmayla sessiz hataya düşülmez.
+ */
+export const isGoogleOAuthEnabled = (): boolean =>
+  Boolean(
+    env.oauth.google.clientId &&
+      env.oauth.google.clientSecret &&
+      env.oauth.google.redirectUri
+  );

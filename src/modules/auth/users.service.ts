@@ -77,6 +77,22 @@ export async function verifyUser(
     );
   }
 
+  // Sosyal-giriş kullanıcısının şifresi yok. Yanlış KANAL denemesi (şifre
+  // tahmini değil) -> failedLoginCount ARTIRILMAZ, kilit sayacı tetiklenmez.
+  if (user.passwordHash === null) {
+    await recordAuthEvent({
+      type: "LOGIN_FAILED",
+      userId: user.id,
+      email,
+      ...ctx,
+      meta: { reason: "password_login_unavailable" },
+    });
+    throw HttpError.unauthorized(
+      "Use social login for this account.",
+      "PASSWORD_LOGIN_UNAVAILABLE"
+    );
+  }
+
   const ok = await argon2.verify(user.passwordHash, password);
   if (!ok) {
     const { failedLoginCount } = await prisma.user.update({

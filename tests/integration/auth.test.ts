@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import { request, createUser } from "../helpers/auth.js";
+import { prisma } from "../../src/config/db.js";
 
 const PASSWORD = "super-secret-pw";
 
@@ -134,6 +135,31 @@ describe("register validation & edge cases", () => {
       .post("/auth/register")
       .send({ ...base, email: "short@test.local", password: "short" });
     expect(res.status).toBe(400);
+  });
+});
+
+// OAuth: sosyal-giriş kullanıcısının (passwordHash=null) şifreyle girişi.
+describe("password login for a social-only account (#OAuth)", () => {
+  it("rejects with PASSWORD_LOGIN_UNAVAILABLE and does NOT increment failedLoginCount", async () => {
+    // passwordHash olmadan (sosyal-giriş) bir kullanıcı oluştur.
+    const user = await prisma.user.create({
+      data: {
+        email: "social@test.local",
+        emailVerified: true,
+        profile: { create: { firstName: "Soc", lastName: "Ial" } },
+      },
+    });
+
+    const res = await request
+      .post("/auth/login")
+      .send({ email: "social@test.local", password: "anything-goes" });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("PASSWORD_LOGIN_UNAVAILABLE");
+
+    // Bu bir şifre denemesi değil, yanlış kanal -> sayaç ARTMAMALI.
+    const after = await prisma.user.findUnique({ where: { id: user.id } });
+    expect(after?.failedLoginCount).toBe(0);
   });
 });
 
