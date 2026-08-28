@@ -140,7 +140,7 @@ describe("register validation & edge cases", () => {
 
 // OAuth: sosyal-giriş kullanıcısının (passwordHash=null) şifreyle girişi.
 describe("password login for a social-only account (#OAuth)", () => {
-  it("rejects with PASSWORD_LOGIN_UNAVAILABLE and does NOT increment failedLoginCount", async () => {
+  it("rejects with GENERIC INVALID_CREDENTIALS (no enumeration) and does NOT increment failedLoginCount", async () => {
     // passwordHash olmadan (sosyal-giriş) bir kullanıcı oluştur.
     const user = await prisma.user.create({
       data: {
@@ -155,7 +155,8 @@ describe("password login for a social-only account (#OAuth)", () => {
       .send({ email: "social@test.local", password: "anything-goes" });
 
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe("PASSWORD_LOGIN_UNAVAILABLE");
+    // Jenerik hata: nonexistent e-posta / yanlış şifre ile ayırt edilemez.
+    expect(res.body.error).toBe("INVALID_CREDENTIALS");
 
     // Bu bir şifre denemesi değil, yanlış kanal -> sayaç ARTMAMALI.
     const after = await prisma.user.findUnique({ where: { id: user.id } });

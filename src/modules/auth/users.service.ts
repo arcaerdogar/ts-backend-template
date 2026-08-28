@@ -77,8 +77,11 @@ export async function verifyUser(
     );
   }
 
-  // Sosyal-giriş kullanıcısının şifresi yok. Yanlış KANAL denemesi (şifre
-  // tahmini değil) -> failedLoginCount ARTIRILMAZ, kilit sayacı tetiklenmez.
+  // Sosyal-giriş kullanıcısının şifresi yok. Client'a GENERIC hata döneriz
+  // (nonexistent e-posta / yanlış şifre ile BİREBİR aynı: kod + mesaj) ->
+  // kullanıcı sayımı (enumeration) sızıntısı yok; saldırgan bu e-postanın
+  // sosyal-giriş hesabı olduğunu ayırt edemez. İç teşhis notu yalnızca audit'te.
+  // failedLoginCount ARTIRILMAZ (bu bir şifre tahmini değil).
   if (user.passwordHash === null) {
     await recordAuthEvent({
       type: "LOGIN_FAILED",
@@ -88,8 +91,8 @@ export async function verifyUser(
       meta: { reason: "password_login_unavailable" },
     });
     throw HttpError.unauthorized(
-      "Use social login for this account.",
-      "PASSWORD_LOGIN_UNAVAILABLE"
+      "Email or password is incorrect.",
+      "INVALID_CREDENTIALS"
     );
   }
 
