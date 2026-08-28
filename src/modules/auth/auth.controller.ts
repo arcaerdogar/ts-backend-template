@@ -18,6 +18,10 @@ import {
 import { HttpError } from "../common/errors.js";
 import { MailSender } from "../../services/mail-service/mailSender.js";
 import { recordAuthEvent } from "./authEvent.js";
+import {
+  deactivateFcmTokenForDevice,
+  deactivateAllFcmTokensForUser,
+} from "../../services/notifications/fcmToken.service.js";
 
 // deviceId ve refreshToken'ı direkt response body'sinde göndererek çözeceğiz. Mobilde cookie yok.
 
@@ -108,15 +112,21 @@ export const refresh = async (req: Request, res: Response) => {
 
 export const logout = async (req: Request, res: Response) => {
   const { refreshToken } = (req as any).body;
-  const userId = await revokeByRaw(refreshToken);
-  if (userId)
-    await recordAuthEvent({ type: "LOGOUT", userId, ip: req.ip });
+  const revoked = await revokeByRaw(refreshToken);
+  if (revoked) {
+    // Oturum kapanan cihaza artık push gitmesin.
+    if (revoked.deviceId) {
+      await deactivateFcmTokenForDevice(revoked.userId, revoked.deviceId);
+    }
+    await recordAuthEvent({ type: "LOGOUT", userId: revoked.userId, ip: req.ip });
+  }
   res.status(200).json({ msg: "Logged out." });
 };
 
 export const logoutAll = async (req: Request, res: Response) => {
   const userId = req.user!.id;
   await revokeAll(userId);
+  await deactivateAllFcmTokensForUser(userId);
   await recordAuthEvent({ type: "LOGOUT_ALL", userId, ip: req.ip });
   res.status(200).json({ msg: "Logged out from all devices." });
 };

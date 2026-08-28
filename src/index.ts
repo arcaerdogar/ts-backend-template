@@ -1,6 +1,7 @@
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { emailWorker } from "./services/mail-service/emailWorker.js";
+import { notificationWorker } from "./services/notifications/notificationWorker.js";
 import { prisma } from "./config/db.js";
 import server from "./server.js";
 
@@ -15,6 +16,7 @@ const shutdown = async () => {
 
   await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   await emailWorker.close();
+  await notificationWorker.close();
   await prisma.$disconnect();
 
   logger.info("Shutdown complete");

@@ -7,10 +7,12 @@ import {
   updateProfileHandler,
   setProfilePhotoHandler,
   deleteSelfHandler,
+  registerFcmTokenHandler,
 } from "./me.controllers.js";
 import {
   updateProfileSchema,
   setProfilePhotoSchema,
+  fcmTokenRegistrationSchema,
 } from "./me.validators.js";
 
 const r = Router();
@@ -31,6 +33,14 @@ r.put(
   authGuard,
   validateBody(setProfilePhotoSchema),
   asyncHandler(setProfilePhotoHandler)
+);
+
+// Push bildirimi için cihazın FCM token'ını kaydeder/günceller.
+r.post(
+  "/fcm-tokens",
+  authGuard,
+  validateBody(fcmTokenRegistrationSchema),
+  asyncHandler(registerFcmTokenHandler)
 );
 
 // Kalıcı hesap silme. 2FA (delete-account scope) OTP'si ?token= ile gelir.

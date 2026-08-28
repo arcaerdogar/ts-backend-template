@@ -25,6 +25,7 @@ model User {
   roles                 HasRole[]
   profile               Profile?
   oauthAccounts         OAuthAccount[]
+  fcmTokens             FcmToken[]
 }
 
 enum OAuthProvider {
@@ -125,6 +126,32 @@ model AuthEvent {
   @@index([userId, createdAt])
   @@index([type, createdAt])
   @@index([email, createdAt])
+}
+
+// Bir cihaza push bildirimi göndermek için kullanılan FCM (Firebase Cloud
+// Messaging) kayıt token'ı. Kullanıcı başına + cihaz başına tek kayıt tutulur
+// (userId+deviceId UNIQUE); yeni token gelince aynı satır güncellenir. Geçersiz
+// token'lar (FCM "not-registered" dönerse) isActive=false yapılır, silinmez.
+enum FcmPlatform {
+  WEB
+  IOS
+  ANDROID
+}
+
+model FcmToken {
+  id         String      @id @default(uuid())
+  userId     String
+  token      String      @unique
+  deviceId   String
+  platform   FcmPlatform
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  lastUsedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId, isActive])
 }
 
 enum FilePurpose {

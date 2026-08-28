@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { FcmPlatform } from "@prisma/client";
+
+// Push bildirimi için cihazın FCM kayıt token'ı. deviceId, oturum (refresh)
+// akışındaki deviceId ile aynıdır (uuid).
+export const fcmTokenRegistrationSchema = z.object({
+  token: z.string().min(1),
+  deviceId: z.uuid(),
+  platform: z.enum(FcmPlatform),
+});
 
 export const updateProfileSchema = z
   .object({

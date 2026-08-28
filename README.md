@@ -14,6 +14,7 @@ A scalable, production-ready backend template designed for modern cloud native a
   - **2FA**: OTP validation via Email.
   - **Secure Cookies**: HTTP-only storage.
   - **Argon2**: Industry-standard password hashing.
+- **Push Notifications**: Firebase Cloud Messaging (FCM) core — per-device token registry, single-user / topic / broadcast sends, queued + retried via BullMQ. Fully **optional**: without Firebase credentials every send is a silent no-op.
 
 ---
 
@@ -92,6 +93,14 @@ GOOGLE_REDIRECT_URI="https://app.myapp.com/oauth/callback"
 # OAUTH_ATTESTATION_ENABLED=false  # when true, /auth/oauth/google requires a
 #                                  # verified app attestation (wire the verifier
 #                                  # via setAppAttestationVerifier — see ADR 0002)
+
+# Firebase Cloud Messaging / Push (optional — omit entirely to disable push).
+# Sends become silent no-ops when unset. Provide EITHER a service-account file
+# path OR the three inline fields (private key with real newlines as \n).
+# FIREBASE_SERVICE_ACCOUNT_PATH="./secrets/firebase-service-account.json"
+# FIREBASE_PROJECT_ID=""
+# FIREBASE_CLIENT_EMAIL=""
+# FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 ### 3. Database Migration
@@ -148,13 +157,15 @@ Structured JSON logging via **pino** + **pino-http**. Every request gets a **cor
 src/
 ├── config/             # Env variables, DB connection
 ├── modules/            # Domain Modules
-│   ├── auth/           # Login, Register, 2FA
+│   ├── auth/           # Login, Register, 2FA (+ /me/fcm-tokens registration)
 │   ├── files/          # FileController, Routes, Utils (upload/download)
+│   ├── notifications/  # Admin push-send endpoint (/notifications/send)
 │   └── common/         # Shared middlewares
 ├── services/           # External Services
 │   ├── aws/            # AWS Client Config
 │   ├── storage/        # S3 Implementation
-│   ├── mail-service/   # SES Implementation
+│   ├── mail-service/   # SES Implementation + BullMQ email worker
+│   └── notifications/  # FCM core: firebase config, token/topic services, queue + worker
 └── scripts/            # Utility scripts
 ```
 
@@ -397,3 +408,23 @@ Get a temporary access link for a private file.
     "url": "https://s3.aws.com/signed-url..."
   }
   ```
+
+### 🔔 Notifications (Push / FCM) Module
+
+Firebase Cloud Messaging core for mobile/web push. The whole module is **optional**: if no Firebase credentials are configured (`isFirebaseConfigured()` is false), token registration still works but every actual send is a silent no-op — the template boots and runs without Firebase.
+
+**How it works**
+
+- **Token registry** — one row per `(userId, deviceId)` (`FcmToken` model). Re-registering the same device updates the token in place. Invalid tokens returned by FCM (`not-registered`) are flagged `isActive = false`, not deleted.
+- **Sends** — `sendToUser` (all of a user's active devices, via `sendEachForMulticast`, auto-chunked at 500), `sendToTopic`, and `sendToAll` (broadcast over the `all-users` topic; every registered device is auto-subscribed on registration).
+- **Delivery** — the admin endpoint enqueues a **BullMQ** job (`push-notifications` queue); the in-process worker (`notificationWorker`, started alongside `emailWorker` in `index.ts`) sends it with exponential-backoff retries. Transient FCM errors (`quota-exceeded`, `unavailable`) are re-queued.
+- **Lifecycle** — `logout` deactivates the current device's token; `logout-all` deactivates all of the user's tokens.
+
+> **Topics:** this template ships only the generic `all-users` broadcast topic plus reusable `subscribeTokensToTopic` / `subscribeUserToTopic` helpers (see [topic.service.ts](src/services/notifications/topic.service.ts)). Wire your own segment topics (e.g. `role-admin`, `region-tr`) on registration or role change.
+
+| Method | Endpoint             | Auth                                              | Payload                                                                 | Description |
+| :----- | :------------------- | :------------------------------------------------ | :--------------------------------------------------------------------- | :---------- |
+| `POST` | `/me/fcm-tokens`     | `Authorization: Bearer <token>`                   | `{ "token": "...", "deviceId": "uuid", "platform": "WEB"\|"IOS"\|"ANDROID" }` | Register/update the calling device's push token (201; `{ created }`) |
+| `POST` | `/notifications/send`| `SYSTEM_ADMIN` role (or root)                     | `{ "target": "user"\|"topic"\|"all", "userId"?, "topic"?, "payload": { "title", "body"?, "data"? } }` | Queue a push send (202). `userId` required for `user`; `topic` required for `topic`. |
+
+Internally, trigger sends from your own code with `sendToUser(userId, payload)` / `sendToTopic(topic, payload)` / `sendToAll(payload)` from [notification.service.ts](src/services/notifications/notification.service.ts), or enqueue via `addNotificationJob(...)`.

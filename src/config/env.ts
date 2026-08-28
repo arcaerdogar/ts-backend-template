@@ -59,6 +59,23 @@ export const env = {
     password: req("ADMIN_PASSWORD"),
   },
 
+  // Firebase Cloud Messaging OPSIYONEL: bu bir template; push bildirimi
+  // kullanmayan projeler bu env'ler olmadan da boot edebilmeli. Bu yüzden
+  // req() DEĞİL, process.env ile okunur. Yapılandırılmamışsa tüm gönderimler
+  // sessizce no-op olur (bkz. notifications/firebase.config.ts).
+  //
+  // İki yol desteklenir: (1) FIREBASE_SERVICE_ACCOUNT_PATH ile service account
+  // JSON dosyası, ya da (2) FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL +
+  // FIREBASE_PRIVATE_KEY üçlüsü (private key'de \n kaçışları düzeltilir).
+  firebase: {
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY
+      ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
+      : undefined,
+    serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+  },
+
   // OAuth OPSIYONEL: bu bir template; OAuth kullanmayan projeler bu env'ler
   // olmadan da boot edebilmeli. Bu yüzden req() DEĞİL, process.env ile okunur.
   //

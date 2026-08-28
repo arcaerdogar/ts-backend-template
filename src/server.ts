@@ -17,6 +17,7 @@ import meRouter from "./modules/auth/meRoutes/me.routes.js";
 import fileRouter from "./modules/files/file.routes.js";
 import rootAdminRouter from "./modules/rootAdmin/rootAdmin.routes.js";
 import userAdminRouter from "./modules/auth/userRoutes/user.routes.js";
+import notificationRouter from "./modules/notifications/notification.routes.js";
 
 const server = express();
 
@@ -38,6 +39,7 @@ server.use("/me", meRouter);
 server.use("/files", fileRouter);
 server.use("/root", rootAdminRouter);
 server.use("/users", userAdminRouter);
+server.use("/notifications", notificationRouter);
 
 server.use(notFoundHandler);
 server.use(globalErrorHandler);

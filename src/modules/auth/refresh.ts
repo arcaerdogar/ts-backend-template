@@ -146,14 +146,23 @@ export const revokeActiveTokensForDevice = async (
   }
 };
 
-/** Ham token ile iptal (logout). İptal edilen oturumun userId'sini döner. */
-export async function revokeByRaw(raw: string): Promise<string | null> {
+/**
+ * Ham token ile iptal (logout). İptal edilen oturumun userId + deviceId'sini
+ * döner (deviceId, oturuma bağlı FCM push token'ını pasifleştirmek için gerekir).
+ */
+export async function revokeByRaw(
+  raw: string
+): Promise<{ userId: string; deviceId: string | null } | null> {
   const jti = (raw || "").split(".")[0];
   if (!jti) return null;
-  const userId = await redis.hget(sessKey(jti), "userId");
+  const [userId, deviceId] = await redis.hmget(
+    sessKey(jti),
+    "userId",
+    "deviceId"
+  );
   if (!userId) return null;
   await revokeOne(userId, jti);
-  return userId;
+  return { userId, deviceId: deviceId ?? null };
 }
 
 /** Kullanıcının tüm oturumlarını iptal eder (logout-all / suspend / parola). */

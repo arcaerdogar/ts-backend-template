@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { getUserInfo, deleteUser } from "../users.service.js";
 import { updateProfile, setProfilePhoto } from "../profile.service.js";
+import { registerFcmToken } from "../../../services/notifications/fcmToken.service.js";
 
 export const getSelfInfo = async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -25,4 +26,16 @@ export const deleteSelfHandler = async (req: Request, res: Response) => {
     userAgent: req.headers["user-agent"],
   });
   res.status(200).json({ msg: "Account deleted." });
+};
+
+// Giriş yapmış kullanıcının aktif cihazı için FCM push token'ı kaydeder.
+export const registerFcmTokenHandler = async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { token, deviceId, platform } = (req as any).body;
+  const { created } = await registerFcmToken(userId, {
+    token,
+    deviceId,
+    platform,
+  });
+  res.status(201).json({ success: true, created });
 };
