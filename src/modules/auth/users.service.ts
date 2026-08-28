@@ -77,6 +77,25 @@ export async function verifyUser(
     );
   }
 
+  // Sosyal-giriş kullanıcısının şifresi yok. Client'a GENERIC hata döneriz
+  // (nonexistent e-posta / yanlış şifre ile BİREBİR aynı: kod + mesaj) ->
+  // kullanıcı sayımı (enumeration) sızıntısı yok; saldırgan bu e-postanın
+  // sosyal-giriş hesabı olduğunu ayırt edemez. İç teşhis notu yalnızca audit'te.
+  // failedLoginCount ARTIRILMAZ (bu bir şifre tahmini değil).
+  if (user.passwordHash === null) {
+    await recordAuthEvent({
+      type: "LOGIN_FAILED",
+      userId: user.id,
+      email,
+      ...ctx,
+      meta: { reason: "password_login_unavailable" },
+    });
+    throw HttpError.unauthorized(
+      "Email or password is incorrect.",
+      "INVALID_CREDENTIALS"
+    );
+  }
+
   const ok = await argon2.verify(user.passwordHash, password);
   if (!ok) {
     const { failedLoginCount } = await prisma.user.update({

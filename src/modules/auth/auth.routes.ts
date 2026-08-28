@@ -21,8 +21,16 @@ import {
 } from "./auth.controller.js";
 import { authGuard, twoFactorAuthGuard } from "../common/authGuard.js";
 import { loginLimiter, registerLimiter, twoFaLimiter } from "../common/rateLimiter.js";
+import { isGoogleOAuthEnabled } from "../../config/env.js";
+import oauthRouter from "./oauth/oauth.routes.js";
 
 const router = Router();
+
+// OAuth OPSIYONEL: yalnızca Google tam yapılandırılmışsa mount edilir. Aktif
+// değilse /auth/oauth/* rotaları hiç var olmaz (yarım config ile sessiz hata yok).
+if (isGoogleOAuthEnabled()) {
+  router.use("/oauth", oauthRouter);
+}
 
 router.post(
   "/register",

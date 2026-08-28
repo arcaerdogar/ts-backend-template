@@ -80,6 +80,18 @@ SES_SENDER_EMAIL="noreply@myapp.com"
 # Local dev: docker-compose ships a redis on localhost:6379.
 # Inside docker-compose the app auto-connects to redis://redis:6379.
 REDIS_URL="redis://localhost:6379"
+
+# Google OAuth / OIDC (optional — omit entirely to disable "Sign in with Google").
+# App-driven native flow (RFC 8252); see ADR 0002. Routes mount ONLY when
+# CLIENT_ID + REDIRECT_URI are both set. No client_secret for a public native
+# client — it is optional (include it only for a confidential/web client).
+# REDIRECT_URI is the app's App Link / Universal Link (echoed during exchange).
+GOOGLE_CLIENT_ID=""
+GOOGLE_REDIRECT_URI="https://app.myapp.com/oauth/callback"
+# GOOGLE_CLIENT_SECRET=""          # optional; only for a confidential client
+# OAUTH_ATTESTATION_ENABLED=false  # when true, /auth/oauth/google requires a
+#                                  # verified app attestation (wire the verifier
+#                                  # via setAppAttestationVerifier — see ADR 0002)
 ```
 
 ### 3. Database Migration
@@ -233,6 +245,39 @@ Critical actions (Password Reset, Email Change) require a short-lived **2FA Toke
 - **Scope-Limited**: A generic access token cannot perform these actions.
 - **Flow**: User requests action -> Server sends OTP -> User submits OTP -> Server returns scoped 2FA Token.
 
+#### 4. Social Login — Google OAuth / OIDC (optional)
+
+An **app-driven** native flow (RFC 8252). The mobile app drives the authorization; the backend only exchanges the code and issues **its own** session — the response is **identical to `/auth/login`**. Full rationale and operating contract: [ADR 0002](docs/adr/0002-oauth-google-app-driven.md).
+
+> ⚠️ **Before shipping a real app: you MUST wire app attestation.** This template ships attestation as a **stub** (`OAUTH_ATTESTATION_ENABLED=false`). Because a native client has **no `client_secret`**, attestation (Play Integrity on Android / App Attest on iOS) is the *only* thing proving the request comes from your genuine, unmodified app. Without it, anyone who extracts your public `client_id` can build a clone app that completes the flow against your backend and phishes your users. For production you MUST: (1) implement a real verifier and register it via `setAppAttestationVerifier()`, (2) set `OAUTH_ATTESTATION_ENABLED=true`, and (3) use an **App Link / Universal Link** redirect (never a bare custom scheme). The stub is fail-closed, so enabling attestation without a verifier rejects all requests rather than letting them through.
+
+```mermaid
+sequenceDiagram
+    participant App as Mobile App
+    participant SB as System Browser
+    participant GA as Google (Authorize)
+    participant BE as Backend
+    participant GT as Google (Token)
+
+    App->>App: generate state, code_verifier, nonce
+    App->>SB: authorize (code_challenge, state, nonce, redirect_uri App Link)
+    Note over SB,GA: system browser (ASWebAuthenticationSession / Custom Tabs), NOT a webview
+    GA-->>App: redirect App Link (code, state)
+    App->>App: verify returned state locally (CSRF)
+    App->>BE: POST /auth/oauth/google (code, codeVerifier, nonce) + attestation
+    BE->>GT: POST /token (code, code_verifier, redirect_uri)
+    GT-->>BE: id_token
+    BE->>BE: verify id_token (JWKS, iss, aud, exp, nonce), find or create user by sub
+    BE-->>App: 200 (user, access, session)
+```
+
+- **OIDC, not just OAuth**: identity comes from the signed **`id_token`** (`sub`, `email`, `email_verified`), which the backend **verifies** (JWKS signature + `iss`/`aud`/`exp`/`nonce`) — never `decode`. Google's own access/refresh tokens are never persisted.
+- **Public client, no `client_secret`**: for a native app Google issues no secret; **PKCE** carries the stolen-code protection. `client_secret` stays optional (confidential/web clients only).
+- **App attestation** replaces `client_secret`'s "is this really your app?" role. Off by default; enable with `OAUTH_ATTESTATION_ENABLED=true` **and** wire a verifier via `setAppAttestationVerifier()` (Play Integrity / App Attest). Enabled-without-verifier is fail-closed.
+- **Account matching by `sub`** (never email). Auto-linking to an existing password account happens **only** when `email_verified` is true on **both** sides; otherwise `409 OAUTH_EMAIL_EXISTS`. OAuth-only users have a `null` `passwordHash`; a password-login attempt for them returns the **generic** `INVALID_CREDENTIALS` (identical to a wrong password / unknown email — no account enumeration), while the internal reason is recorded in the audit log only.
+- **Stateless handshake**: `state`/`code_verifier`/`nonce` live in the app, so no Redis and no `/start` · `/callback` · `/exchange` round-trips — a single endpoint.
+- **App must**: use the system browser (not an embedded webview) and an **App Link / Universal Link** redirect (bare custom schemes are rejected by Google for app impersonation), and verify `state` locally before calling the backend.
+
 ---
 
 ## 📡 API Reference
@@ -250,6 +295,7 @@ Critical actions (Password Reset, Email Change) require a short-lived **2FA Toke
 | `POST` | `/auth/verify-email`   | Verify Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
 | `POST` | `/auth/reset-password` | Reset Password with 2FA | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | `{ "newPassword": "new-strong-password" }`      |
 | `POST` | `/auth/change-email`   | Change Email with 2FA   | `Authorization: Bearer <token>`, `x-2fa-token: <otp>` | -                                               |
+| `POST` | `/auth/oauth/google`   | Sign in with Google (app-driven, [ADR 0002](docs/adr/0002-oauth-google-app-driven.md)). Mounted only when Google is configured. | `X-App-Attestation: <token>` (when attestation enabled) | `{ "code", "codeVerifier", "nonce" }` → returns the same shape as `/auth/login` |
 
 ### 👤 Me / Profile Module
 
