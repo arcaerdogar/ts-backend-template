@@ -1,15 +1,13 @@
 import { z } from "zod";
 
-// start gövdesi: şu an ek parametre almıyor (successRedirect env'den sabittir,
-// open-redirect'i engellemek için client'tan alınmaz). Şema zinciri tutarlılık
-// ve ileri genişleme için burada.
-export const oauthStartSchema = z.object({});
-
-export const oauthCallbackQuerySchema = z.object({
+/**
+ * POST /auth/oauth/google gövdesi (app-driven akış).
+ * App, sistem tarayıcısındaki authorize'dan dönen code'u; PKCE code_verifier'ını
+ * ve authorize'da kullandığı nonce'u getirir. state backend'e GELMEZ — CSRF
+ * kontrolünü app kendi belleğindeki state ile lokal yapar (bkz. ADR 0002).
+ */
+export const oauthGoogleSchema = z.object({
   code: z.string().min(1),
-  state: z.string().min(1),
-});
-
-export const oauthExchangeSchema = z.object({
-  exchangeCode: z.string().min(1),
+  codeVerifier: z.string().min(1),
+  nonce: z.string().min(1),
 });

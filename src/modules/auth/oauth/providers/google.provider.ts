@@ -2,9 +2,8 @@ import jwt from "jsonwebtoken";
 import { env } from "../../../../config/env.js";
 import { HttpError } from "../../../common/errors.js";
 import { getGoogleSigningKey } from "../jwks.js";
-import type { AuthorizeParams, OAuthIdentity, OAuthProviderAdapter } from "./provider.interface.js";
+import type { OAuthIdentity, OAuthProviderAdapter } from "./provider.interface.js";
 
-const GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 // Google id_token'ında kabul edilen iss değerleri (iki varyant da geçerlidir).
 const GOOGLE_ISSUERS: [string, string] = [
@@ -23,10 +22,13 @@ type GoogleIdTokenClaims = {
   nonce?: string;
 };
 
-/** Yalnızca tam yapılandırılmışken (env aktifken) çağrılır; aksi halde patlar. */
+/**
+ * Yalnızca env aktifken çağrılır. clientId + redirectUri ŞART; clientSecret
+ * public native client'ta bulunmadığı için opsiyoneldir (varsa exchange'e eklenir).
+ */
 function googleConfig() {
   const { clientId, clientSecret, redirectUri } = env.oauth.google;
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !redirectUri) {
     throw HttpError.internal("Google OAuth is not configured.");
   }
   return { clientId, clientSecret, redirectUri };
@@ -122,22 +124,6 @@ export async function verifyGoogleIdToken(
 export const googleProvider: OAuthProviderAdapter = {
   provider: "GOOGLE",
 
-  getAuthorizeUrl({ state, codeChallenge, nonce }: AuthorizeParams): string {
-    const { clientId, redirectUri } = googleConfig();
-    const params = new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: "code",
-      scope: "openid email profile",
-      state,
-      nonce,
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
-      prompt: "select_account",
-    });
-    return `${GOOGLE_AUTHORIZE_URL}?${params.toString()}`;
-  },
-
   async exchangeCode(
     code: string,
     codeVerifier: string,
@@ -145,18 +131,22 @@ export const googleProvider: OAuthProviderAdapter = {
   ): Promise<OAuthIdentity> {
     const { clientId, clientSecret, redirectUri } = googleConfig();
 
+    // redirect_uri, app'in authorize'da kullandığı App Link ile AYNI olmalı
+    // (sabit env'den gelir). client_secret yalnızca varsa eklenir (confidential
+    // client); public native client'ta korumayı PKCE'nin code_verifier'ı taşır.
+    const form: Record<string, string> = {
+      grant_type: "authorization_code",
+      code,
+      code_verifier: codeVerifier,
+      client_id: clientId,
+      redirect_uri: redirectUri,
+    };
+    if (clientSecret) form.client_secret = clientSecret;
+
     const res = await fetch(GOOGLE_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      // redirect_uri, authorize'daki ile AYNI olmalı (sabit env'den gelir).
-      body: new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        code_verifier: codeVerifier,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-      }).toString(),
+      body: new URLSearchParams(form).toString(),
     });
 
     if (!res.ok) {

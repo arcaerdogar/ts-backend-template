@@ -16,27 +16,21 @@ export type OAuthIdentity = {
   avatarUrl?: string;
 };
 
-/** authorize URL üretmek için gereken tek-kullanımlık akış parametreleri. */
-export type AuthorizeParams = {
-  state: string;
-  codeChallenge: string;
-  nonce: string;
-};
-
 /**
- * Sağlayıcı-agnostik OAuth arayüzü. Google bu PR'da tek implementasyon; GitHub/
- * Apple ileride aynı arayüzün arkasına eklenebilir (bu PR'da DEĞİL).
+ * Sağlayıcı-agnostik OAuth arayüzü. Google bu implementasyondaki tek sağlayıcı;
+ * GitHub/Apple ileride aynı arayüzün arkasına eklenebilir.
+ *
+ * NOT: authorize URL'ini backend KURMAZ. App-driven akışta (RFC 8252) app,
+ * state + code_verifier + nonce üretip authorize URL'ini kendisi kurar ve sistem
+ * tarayıcısında açar. Backend yalnızca app'in getirdiği code'u exchange eder.
  */
 export interface OAuthProviderAdapter {
   readonly provider: OAuthProvider;
 
-  /** PKCE + state + nonce ile sağlayıcının authorize URL'ini kurar. */
-  getAuthorizeUrl(params: AuthorizeParams): string;
-
   /**
-   * authorization code'u token'a çevirir, id_token'ı DOĞRULAR (decode değil)
-   * ve normalize edilmiş kimliği döner. nonce, akış başında üretilen değerle
-   * eşleşmelidir.
+   * App'in getirdiği authorization code'u token'a çevirir, id_token'ı DOĞRULAR
+   * (decode değil) ve normalize edilmiş kimliği döner. codeVerifier app tarafından
+   * üretilip iletilir (PKCE); nonce, app'in authorize'da kullandığı değerdir.
    */
   exchangeCode(code: string, codeVerifier: string, nonce: string): Promise<OAuthIdentity>;
 }
