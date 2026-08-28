@@ -1,0 +1,23 @@
+# Yerel bağımlılıklar/build çıktıları imaja girmemeli (builder kendi kurar/derler).
+node_modules
+dist
+
+# Sırlar ve yerel ortam — ASLA imaja kopyalanmasın.
+.env
+.env.*
+
+# VCS / meta
+.git
+.gitignore
+
+# Testler, dokümanlar, IDE — runtime imajı için gereksiz.
+tests
+coverage
+docs
+*.md
+.vscode
+
+# Docker'ın kendisi
+Dockerfile
+.dockerignore
+docker-compose*.yml

@@ -22,7 +22,7 @@ A scalable, production-ready backend template designed for modern cloud native a
 ### Prerequisites
 
 - Node.js (v20+)
-- PostgreSQL Database
+- Docker + Docker Compose (bundles **PostgreSQL + Redis** locally — see `docker-compose.yml`). Prefer a managed/cloud Postgres instead? Set `DATABASE_URL` in `.env` and drop the local `postgres` service (details in `.env.example`).
 - AWS Account (S3 Bucket + SES Verified Identity)
 
 ### 1. Clone & Install
@@ -36,7 +36,7 @@ npm run prisma:gen
 
 ### 2. Configure Environment
 
-Copy `env.example` to `.env` and fill in the values:
+Copy `.env.example` to `.env` and fill in the values:
 
 ```env
 PORT=3000
@@ -149,7 +149,7 @@ src/
 ├── config/             # Env variables, DB connection
 ├── modules/            # Domain Modules
 │   ├── auth/           # Login, Register, 2FA
-│   ├── upload/         # FileController, Routes, Utils
+│   ├── files/          # FileController, Routes, Utils (upload/download)
 │   └── common/         # Shared middlewares
 ├── services/           # External Services
 │   ├── aws/            # AWS Client Config
@@ -198,10 +198,10 @@ sequenceDiagram
     participant Server
     participant AWS S3
 
-    Client->>Server: POST /upload/init
+    Client->>Server: POST /files/init
     Server-->>Client: Presigned URL
     Client->>AWS S3: PUT /file (to temp/)
-    Client->>Server: POST /upload/confirm
+    Client->>Server: POST /files/confirm
     Server->>AWS S3: Move File (temp/ -> final/)
     Server->>DB: Save Record
 ```
@@ -285,7 +285,7 @@ sequenceDiagram
 ### 🔐 Auth Module
 
 | Method | Endpoint               | Description             | Headers                                               | Payload                                         |
-| :----- | :--------------------- | :---------------------- | :---------------------------------------------------- | :---------------------------------------------- | ------------------- |
+| :----- | :--------------------- | :---------------------- | :---------------------------------------------------- | :---------------------------------------------- |
 | `POST` | `/auth/register`       | Register new user       | -                                                     | `{ "email", "password", "firstName", "lastName" }` (profile is created in the same transaction) |
 | `POST` | `/auth/login`          | Login user              | -                                                     | `{ "email": "...", "password": "..." }`         |
 | `POST` | `/auth/logout`         | Logout current session  | -                                                     | `{ "refreshToken": "..." }`                     |
@@ -340,13 +340,15 @@ Requires `SYSTEM_ADMIN` role (or root).
 
 > **Account protection:** `login` now rejects suspended accounts (`ACCOUNT_SUSPENDED`) and temporarily locks accounts after 5 consecutive failed attempts for 15 minutes (`ACCOUNT_LOCKED`).
 
-### 📂 Upload Module
+### 📂 Files (Upload) Module
+
+> Mounted at `/files` (see [server.ts](src/server.ts)). The profile-photo flow above references these same endpoints.
 
 #### 1. Initialize Upload
 
 Request a secure upload slot.
 
-- **URL**: `/upload/init`
+- **URL**: `/files/init`
 - **Body**:
   ```json
   {
@@ -369,7 +371,7 @@ Request a secure upload slot.
 
 Finalize the upload, verify integrity, and move file to permanent storage.
 
-- **URL**: `/upload/confirm`
+- **URL**: `/files/confirm`
 - **Body**:
   ```json
   {
@@ -388,7 +390,7 @@ Finalize the upload, verify integrity, and move file to permanent storage.
 
 Get a temporary access link for a private file.
 
-- **URL**: `/upload/download?key=documents/id-card.pdf`
+- **URL**: `/files/download?key=documents/id-card.pdf`
 - **Response**:
   ```json
   {
